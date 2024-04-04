@@ -243,7 +243,9 @@ print_title() {
     local title="$1"
     local border="===================="
 
-    echo "\n${border} $title ${border}\n"
+    echo ""
+    echo "${border} $title ${border}"
+    echo ""
 }
 
 # Print the elements of an array along with their indices
