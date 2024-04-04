@@ -1,0 +1,1 @@
+# app_store_required_privacy_manifest_analyser
