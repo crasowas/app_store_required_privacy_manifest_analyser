@@ -1,0 +1,601 @@
+#!/bin/bash
+
+# Copyright (c) 2024, crasowas.
+#
+# Use of this source code is governed by a MIT-style license
+# that can be found in the LICENSE file or at
+# https://opensource.org/licenses/MIT.
+
+# Array of directories excluded from analysis
+target_excluded_dirs=()
+
+# Parse command-line options
+while getopts "e:" opt; do
+  case $opt in
+    e) target_excluded_dirs+=("$OPTARG")
+    ;;
+    \?) echo "Invalid option: $OPTARG" >&2
+        exit 1
+    ;;
+  esac
+done
+
+shift $((OPTIND - 1))
+
+# Check if a directory path parameter is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <directory-path>"
+    exit 1
+fi
+
+target_dir=$1
+
+# Pods directory will be separately analyzed if it's a Cocoa project
+pods_dir="$target_dir/Pods"
+# Exclude non-library directories within the Pods directory
+pods_excluded_dirs=("$pods_dir/Pods.xcodeproj" "$pods_dir/Target Support Files" "$pods_dir/Local Podspecs" "$pods_dir/Headers")
+# Flutter plugins directory will be separately analyzed if it's a Flutter project
+flutter_plugins_dir="$target_dir/.symlinks/plugins"
+# Frameworks directory will be separately analyzed if the target directory is an application bundle (*.app)
+frameworks_dir="$target_dir/Frameworks"
+
+# Exclude directories to be separately analyzed
+target_excluded_dirs+=("$pods_dir" "$flutter_plugins_dir" "$frameworks_dir")
+
+privacy_manifest_file_name="PrivacyInfo.xcprivacy"
+
+# Analysis indicators
+found_count=0
+warning_count=0
+issue_count=0
+completed_count=0
+common_sdk_count=0
+
+# Defines the delimiter used to splice APIs and their categories
+delimiter=":"
+
+# Text of the required reason APIs and their categories
+# See also:
+#   * https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
+#   * https://github.com/Wooder/ios_17_required_reason_api_scanner/blob/main/required_reason_api_text_scanner.sh
+readonly API_TEXTS=(
+    # NSPrivacyAccessedAPICategoryFileTimestamp
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.creationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.modificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.fileModificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.contentModificationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.creationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlist("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlistbulk("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fgetattrlist("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}stat.st_"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fstat("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fstatat("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}lstat("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlistat("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSFileCreationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSFileModificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSURLContentModificationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSURLCreationDateKey"
+    # NSPrivacyAccessedAPICategorySystemBootTime
+    "NSPrivacyAccessedAPICategorySystemBootTime${delimiter}systemUptime"
+    "NSPrivacyAccessedAPICategorySystemBootTime${delimiter}mach_absolute_time()"
+    # NSPrivacyAccessedAPICategoryDiskSpace
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}volumeAvailableCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}volumeAvailableCapacityForImportantUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}volumeAvailableCapacityForOpportunisticUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}volumeTotalCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}systemFreeSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}systemSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}statfs("
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}statvfs("
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fstatfs("
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fstatvfs("
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}getattrlist("
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fgetattrlist("
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}getattrlistat("
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityForImportantUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityForOpportunisticUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeTotalCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSFileSystemFreeSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSFileSystemSize"
+    # NSPrivacyAccessedAPICategoryActiveKeyboards
+    "NSPrivacyAccessedAPICategoryActiveKeyboards${delimiter}activeInputModes"
+    # NSPrivacyAccessedAPICategoryUserDefaults
+    "NSPrivacyAccessedAPICategoryUserDefaults${delimiter}UserDefaults"
+    "NSPrivacyAccessedAPICategoryUserDefaults${delimiter}NSUserDefaults"
+    "NSPrivacyAccessedAPICategoryUserDefaults${delimiter}AppStorage"
+)
+
+# Symbol of the required reason APIs and their categories
+# See also:
+#   * https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
+#   * https://github.com/Wooder/ios_17_required_reason_api_scanner/blob/main/required_reason_api_binary_scanner.sh
+readonly API_SYMBOLS=(
+    # NSPrivacyAccessedAPICategoryFileTimestamp
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlist"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlistbulk"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fgetattrlist"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}stat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fstat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fstatat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}lstat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlistat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSFileCreationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSFileModificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSURLContentModificationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSURLCreationDateKey"
+    # NSPrivacyAccessedAPICategorySystemBootTime
+    "NSPrivacyAccessedAPICategorySystemBootTime${delimiter}systemUptime"
+    "NSPrivacyAccessedAPICategorySystemBootTime${delimiter}mach_absolute_time"
+    # NSPrivacyAccessedAPICategoryDiskSpace
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}statfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}statvfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fstatfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fstatvfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSFileSystemFreeSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSFileSystemSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityForImportantUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityForOpportunisticUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeTotalCapacityKey"
+    # NSPrivacyAccessedAPICategoryActiveKeyboards
+    "NSPrivacyAccessedAPICategoryActiveKeyboards${delimiter}activeInputModes"
+    # NSPrivacyAccessedAPICategoryUserDefaults
+    "NSPrivacyAccessedAPICategoryUserDefaults${delimiter}NSUserDefaults"
+)
+
+# List of commonly used SDKs
+# See also:
+#   * https://developer.apple.com/support/third-party-SDK-requirements
+readonly COMMON_SDKS=(
+    "Abseil"
+    "AFNetworking"
+    "Alamofire"
+    "AppAuth"
+    "BoringSSL / openssl_grpc"
+    "Capacitor"
+    "Charts"
+    "connectivity_plus"
+    "Cordova"
+    "device_info_plus"
+    "DKImagePickerController"
+    "DKPhotoGallery"
+    "FBAEMKit"
+    "FBLPromises"
+    "FBSDKCoreKit"
+    "FBSDKCoreKit_Basics"
+    "FBSDKLoginKit"
+    "FBSDKShareKit"
+    "file_picker"
+    "FirebaseABTesting"
+    "FirebaseAuth"
+    "FirebaseCore"
+    "FirebaseCoreDiagnostics"
+    "FirebaseCoreExtension"
+    "FirebaseCoreInternal"
+    "FirebaseCrashlytics"
+    "FirebaseDynamicLinks"
+    "FirebaseFirestore"
+    "FirebaseInstallations"
+    "FirebaseMessaging"
+    "FirebaseRemoteConfig"
+    "Flutter"
+    "flutter_inappwebview"
+    "flutter_local_notifications"
+    "fluttertoast"
+    "FMDB"
+    "geolocator_apple"
+    "GoogleDataTransport"
+    "GoogleSignIn"
+    "GoogleToolboxForMac"
+    "GoogleUtilities"
+    "grpcpp"
+    "GTMAppAuth"
+    "GTMSessionFetcher"
+    "hermes"
+    "image_picker_ios"
+    "IQKeyboardManager"
+    "IQKeyboardManagerSwift"
+    "Kingfisher"
+    "leveldb"
+    "Lottie"
+    "MBProgressHUD"
+    "nanopb"
+    "OneSignal"
+    "OneSignalCore"
+    "OneSignalExtension"
+    "OneSignalOutcomes"
+    "OpenSSL"
+    "OrderedSet"
+    "package_info"
+    "package_info_plus"
+    "path_provider"
+    "path_provider_ios"
+    "Promises"
+    "Protobuf"
+    "Reachability"
+    "RealmSwift"
+    "RxCocoa"
+    "RxRelay"
+    "RxSwift"
+    "SDWebImage"
+    "share_plus"
+    "shared_preferences_ios"
+    "SnapKit"
+    "sqflite"
+    "Starscream"
+    "SVProgressHUD"
+    "SwiftyGif"
+    "SwiftyJSON"
+    "Toast"
+    "UnityFramework"
+    "url_launcher"
+    "url_launcher_ios"
+    "video_player_avfoundation"
+    "wakelock"
+    "webview_flutter_wkwebview"
+)
+
+# Print a formatted title
+print_title() {
+    local title="$1"
+    local border="===================="
+
+    echo "\n${border} $title ${border}\n"
+}
+
+# Print the elements of an array along with their indices
+print_array() {
+    local -a array=("$@")
+    
+    for ((i=0; i<${#array[@]}; i++)); do
+        echo "[$i] ${array[i]}"
+    done
+}
+
+# Split a string into substrings using a specified delimiter
+split_string_by_delimiter() {
+    local string="$1"
+    local -a substrings=()
+
+    IFS="$delimiter" read -ra substrings <<< "$string"
+
+    echo "${substrings[@]}"
+}
+
+is_excluded_dir() {
+    local dir_name="$1"
+    local excluded_dirs=("${@:2}")
+    
+    for excluded_dir in "${excluded_dirs[@]}"; do
+        if [ "$dir_name" == "$excluded_dir" ]; then
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+is_common_sdk() {
+    local lib_name="$1"
+    
+    for common_sdk in "${COMMON_SDKS[@]}"; do
+        if [[ "$common_sdk" == "$lib_name" ]] ; then
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+# Analyze a source code file for API texts and their categories
+analyze_source_code_file() {
+    local file_path="$1"
+    local -a results=()
+
+    for api_text in "${API_TEXTS[@]}"; do
+        substrings=($(split_string_by_delimiter "$api_text"))
+        category=${substrings[0]}
+        api=${substrings[1]}
+    
+        # Search for lines containing the API text in the source code file
+        lines=$(grep -n "$api" "$file_path" | cut -d ":" -f 1)
+        if [ -n "$lines" ]; then
+            index=-1
+            for ((i=0; i<${#results[@]}; i++)); do
+                result="${results[i]}"
+                result_substrings=($(split_string_by_delimiter "$result"))
+                # If the category matches an existing result, update it
+                if [[ "${result_substrings[0]}" == "$category" ]]; then
+                   index=i
+                   results[i]="$category$delimiter${result_substrings[1]},$api$delimiter$file_path"
+                   break
+                fi
+            done
+            
+            # If no matching category found, add a new result
+            if [[ $index -eq -1 ]]; then
+                results+=("$category$delimiter$api$delimiter$file_path")
+            fi
+        fi
+    done
+    
+    echo "${results[@]}"
+}
+
+# Analyze a binary file for API symbols and their categories
+analyze_binary_file() {
+    local file_path="$1"
+    local -a results=()
+    
+    for api_symbol in "${API_SYMBOLS[@]}"; do
+        substrings=($(split_string_by_delimiter "$api_symbol"))
+        category=${substrings[0]}
+        api=${substrings[1]}
+    
+        # Check if the API symbol exists in the binary file
+        if nm "$file_path" 2>/dev/null | xcrun swift-demangle | grep -E "$api$" >/dev/null; then
+            index=-1
+            for ((i=0; i<${#results[@]}; i++)); do
+                result="${results[i]}"
+                result_substrings=($(split_string_by_delimiter "$result"))
+                # If the category matches an existing result, update it
+                if [[ "${result_substrings[0]}" == "$category" ]]; then
+                   index=i
+                   results[i]="$category$delimiter${result_substrings[1]},$api$delimiter$file_path"
+                   break
+                fi
+            done
+  
+            # If no matching category found, add a new result
+            if [[ $index -eq -1 ]]; then
+                results+=("$category$delimiter$api$delimiter$file_path")
+            fi
+        fi
+    done
+    
+    echo "${results[@]}"
+}
+
+# Recursively analyzes API usage in a directory and its subdirectories
+analyze_api_usage() {
+    local dir_path="$1"
+    local excluded_dirs=("${@:2}")
+    local -a results=()
+    
+    # Check if the directory is excluded from analysis
+    if is_excluded_dir "$dir_path" "${excluded_dirs[@]}"; then
+        return
+    fi
+    
+    local dir_name="$(basename "$dir_path")"
+    
+    # If the directory is an application bundle (*.app) or framework (*.framework), analyze its binary file
+    if [[ "$dir_name" == *.app ]]; then
+        binary_name="${dir_name%.*}"
+        binary_file="$dir_path/$binary_name"
+        if [ -f "$binary_file" ]; then
+            results+=($(analyze_binary_file "$binary_file"))
+        fi
+    elif [[ "$dir_name" == *.framework ]]; then
+        binary_name="${dir_name%.*}"
+        binary_file="$dir_path/$binary_name"
+        if [ -f "$binary_file" ]; then
+            results+=($(analyze_binary_file "$binary_file"))
+        fi
+    else
+        for path in "$dir_path"/*; do
+            if [ -d "$path" ]; then
+                results+=($(analyze_api_usage "$path" "${excluded_dirs[@]}"))
+            elif [ -f "$path" ]; then
+                # Analyze source code files (*.swift, *.m, *.h) and binary files (*.a)
+                if [[ "$path" == *.swift ]] || [[ "$path" == *.m ]] || [[ "$path" == *.h ]]; then
+                    results+=($(analyze_source_code_file "$path"))
+                elif [[ "$path" == *.a ]]; then
+                    results+=($(analyze_binary_file "$path"))
+                fi
+            fi
+        done
+    fi
+
+    echo "${results[@]}"
+}
+
+# Function to search for privacy manifest files within a directory
+search_privacy_manifest_files() {
+    local dir_path="$1"
+    local excluded_dirs=("${@:2}")
+    local -a privacy_manifest_files=()
+
+    # Create a temporary file to store search results
+    local tempfile=$(mktemp)
+
+    # Ensure the temporary file is deleted on script exit
+    trap "rm -f $tempfile" EXIT
+
+    # Find privacy manifest files within the specified directory and store the results in the temporary file
+    find "$dir_path" -type f -name "$privacy_manifest_file_name" -print0 2>/dev/null > "$tempfile"
+
+    # Exclude privacy manifest files within excluded directories
+    while IFS= read -r -d '' file_path; do
+        local skip_file=0
+        for excluded_dir in "${excluded_dirs[@]}"; do
+            if [[ "$file_path" == "$excluded_dir"* ]]; then
+                skip_file=1
+                break
+            fi
+        done
+        if [ $skip_file -eq 0 ]; then
+            privacy_manifest_files+=("$file_path")
+        fi
+    done < "$tempfile"
+
+    echo "${privacy_manifest_files[@]}"
+}
+
+get_privacy_manifest_file() {
+    # If there are multiple privacy manifest files, return the one with the shortest path
+    local privacy_manifest_file=$(printf "%s\n" "$@" | awk '{print length, $0}' | sort -n | head -n1 | cut -d ' ' -f2-)
+    
+    echo "$privacy_manifest_file"
+}
+
+check_privacy_manifest_file() {
+    local privacy_manifest_files=("$@")
+    
+    if [[ ${#privacy_manifest_files[@]} -eq 0 ]]; then
+        ((warning_count++))
+        echo "⚠️  Missing privacy manifest file!"
+    else
+        ((found_count++))
+        echo "💡 Found privacy manifest file(s): ${#privacy_manifest_files[@]}"
+    fi
+}
+
+# Function to get categories from analysis results
+get_categories() {
+    local results=("$@")
+    local -a categories=()
+    
+    for result in "${results[@]}"; do
+        substrings=($(split_string_by_delimiter "$result"))
+        category=${substrings[0]}
+        if ! [[ "$(IFS=" "; echo "${categories[@]}")" =~ "$category" ]]; then
+                categories+=("$category")
+        fi
+    done
+    
+    echo "${categories[@]}"
+}
+
+# Check if descriptions for required API reasons are missing
+check_categories() {
+    local privacy_manifest_file="$1"
+    local categories=("${@:2}")
+    local -a miss_categories=()
+    
+    if [ -f "$privacy_manifest_file" ]; then
+        for api_category in "${categories[@]}"; do
+            grep -q "$api_category" "$privacy_manifest_file"
+            if [ $? -ne 0 ]; then
+                miss_categories+=("$api_category")
+            fi
+        done
+    else
+        miss_categories=("${@:2}")
+    fi
+    
+    if [[ ${#miss_categories[@]} -eq 0 ]]; then
+        if [ -f "$privacy_manifest_file" ]; then
+            ((completed_count++))
+            echo "✅ All required API reasons have been described in the privacy manifest."
+        fi
+    else
+        ((issue_count++))
+        echo "🛠️  Descriptions for the following required API reason(s) may be missing: ${#miss_categories[@]}"
+        print_array "${miss_categories[@]}"
+    fi
+}
+
+# Function to analyze directory for privacy manifest file and API usage
+analyze() {
+    local dir_path="$1"
+    local excluded_dirs=("${@:2}")
+    
+    privacy_manifest_files=($(search_privacy_manifest_files "$dir_path" "${excluded_dirs[@]}"))
+    check_privacy_manifest_file "${privacy_manifest_files[@]}"
+    print_array "${privacy_manifest_files[@]}"
+    
+    analysis_results=($(analyze_api_usage "$dir_path" "${excluded_dirs[@]}"))
+    echo "API usage analysis result(s): ${#analysis_results[@]}"
+    print_array "${analysis_results[@]}"
+    
+    categories=($(get_categories "${analysis_results[@]}"))
+    check_categories "$(get_privacy_manifest_file "${privacy_manifest_files[@]}")" "${categories[@]}"
+}
+
+# Function to analyze the target directory
+analyze_target_dir() {
+    print_title "Analyzing Target Directory"
+    
+    analyze "$target_dir" "${target_excluded_dirs[@]}"
+}
+
+# Function to analyze a library directory
+analyze_lib_dir() {
+    local lib_path="$1"
+    local dir_name=$(basename "$lib_path")
+    
+    # Remove version name for Flutter plugin libraries
+    local lib_name="${dir_name%-[0-9].[0-9].[0-9]*}"
+    # Remove .app and .framework suffixes
+    lib_name="${lib_name%.*}"
+    
+    # Check if the library is a common SDK
+    if is_common_sdk "$lib_name"; then
+        ((common_sdk_count++))
+        echo "Analyzing $dir_name 🎯 ..."
+    else
+        echo "Analyzing $dir_name ..."
+    fi
+    
+    analyze "$path"
+    echo ""
+}
+
+# Function to analyze the Pods directory
+analyze_pods_dir() {
+    if ! [ -d "$pods_dir" ]; then
+        return
+    fi
+    
+    print_title "Analyzing Pods Directory"
+    
+    for path in "$pods_dir"/*; do
+        if [ -d "$path" ] && ! is_excluded_dir "$path" "${pods_excluded_dirs[@]}"; then
+            analyze_lib_dir "$path"
+        fi
+    done
+}
+
+# Function to analyze the Flutter plugins directory
+analyze_flutter_plugins_dir() {
+    if ! [ -d "$flutter_plugins_dir" ]; then
+        return
+    fi
+    
+    print_title "Analyzing Flutter Plugins Directory"
+    
+    for path in "$flutter_plugins_dir"/*; do
+        lib_path="$(readlink -f "$path")"
+        if [ -d "$lib_path" ] ; then
+            analyze_lib_dir "$lib_path"
+        fi
+    done
+}
+
+# Function to analyze the Frameworks directory
+analyze_frameworks_dir() {
+    if ! [ -d "$frameworks_dir" ]; then
+        return
+    fi
+    
+    print_title "Analyzing Frameworks Directory"
+    
+    for path in "$frameworks_dir"/*; do
+        if [ -d "$path" ] ; then
+            analyze_lib_dir "$path"
+        fi
+    done
+}
+
+analyze_target_dir
+analyze_pods_dir
+analyze_flutter_plugins_dir
+analyze_frameworks_dir
+
+echo "Analysis completed! 💡: $found_count ⚠️ : $warning_count 🛠️ : $issue_count ✅: $completed_count 🎯: $common_sdk_count."
+echo "⚠️ 🛠️ : https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api"
+echo "🎯: https://developer.apple.com/support/third-party-SDK-requirements"
