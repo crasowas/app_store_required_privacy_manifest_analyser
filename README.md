@@ -10,7 +10,7 @@ Important: The scanning of required reason APIs is implemented based on [ios_17_
 
 ## Usage
 
-1. Getting Started
+### 1. Getting Started
 
 ```shell
 sh privacy_manifest_analyser.sh <directory-path>
@@ -66,6 +66,7 @@ Analysis completed! 💡: 6 ⚠️ : 30 🛠️ : 10 ✅: 6 🎯: 10.
 ```
 
 When the privacy manifest of third-party SDKs is missing, please update the third-party SDKs or provide feedback to the developers.
+
 If your app's code has the same issue, please refer to the following documents or video for resolution:
 
 * [Describing data use in privacy manifests](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_data_use_in_privacy_manifests)
@@ -75,7 +76,7 @@ If your app's code has the same issue, please refer to the following documents o
 When `🎯` appears in your analysis logs, please promptly update the commonly tagged SDKs.
 For more information, please refer to: [Upcoming third-party SDK requirements](https://developer.apple.com/support/third-party-SDK-requirements).
 
-2. Command Line Options
+### 2. Command Line Options
 
 `-e`: Specify directory to exclude from analysis
 
@@ -83,18 +84,17 @@ For more information, please refer to: [Upcoming third-party SDK requirements](h
 sh privacy_manifest_analyser.sh -e <excluded_directory-path> <directory-path>
 ```
 
-3. Saving Analysis Logs
+### 3. Saving Analysis Logs
 
 ```shell
 sh privacy_manifest_analyser.sh <directory-path> >log.txt
 ```
 
-# Notes
+## Notes
 
 If statically linked libraries use required reason APIs, you need to add a description of these required reason APIs to your app's privacy manifest, even if they have their own privacy manifest. 
-The reason is that the code of the static link library and the code of the application are merged into a single executable file during compilation.
 
-It is recommended to run the script again for analysis after archiving:
+The reason is that the code of the static link library and the code of the application are merged into a single executable file during compilation. It is recommended to run the script again for analysis after archiving:
 
 ```shell
 sh privacy_manifest_analyser.sh <*.app>
