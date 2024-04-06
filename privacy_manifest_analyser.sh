@@ -54,6 +54,9 @@ common_sdk_count=0
 # Defines the delimiter used to splice APIs and their categories
 delimiter=":"
 
+# Define the space escape symbol to handle the issue of space within path
+readonly SPACE_ESCAPE="\u0020"
+
 # Text of the required reason APIs and their categories
 # See also:
 #   * https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
@@ -253,7 +256,7 @@ print_array() {
     local -a array=("$@")
     
     for ((i=0; i<${#array[@]}; i++)); do
-        echo "[$i] ${array[i]}"
+        echo "[$i] $(path_decode "${array[i]}")"
     done
 }
 
@@ -265,6 +268,16 @@ split_string_by_delimiter() {
     IFS="$delimiter" read -ra substrings <<< "$string"
 
     echo "${substrings[@]}"
+}
+
+# Encode a path string by replacing space with an escape character
+path_encode() {
+    echo "$1" | sed "s/ /$SPACE_ESCAPE/g";
+}
+
+# Decode a path string by replacing encoded character with space
+path_decode() {
+    echo "$1" | sed "s/$SPACE_ESCAPE/ /g";
 }
 
 is_excluded_dir() {
@@ -312,14 +325,14 @@ analyze_source_code_file() {
                 # If the category matches an existing result, update it
                 if [[ "${result_substrings[0]}" == "$category" ]]; then
                    index=i
-                   results[i]="$category$delimiter${result_substrings[1]},$api$delimiter$file_path"
+                   results[i]="$category$delimiter${result_substrings[1]},$api$delimiter$(path_encode "$file_path")"
                    break
                 fi
             done
             
             # If no matching category found, add a new result
             if [[ $index -eq -1 ]]; then
-                results+=("$category$delimiter$api$delimiter$file_path")
+                results+=("$category$delimiter$api$delimiter$(path_encode "$file_path")")
             fi
         fi
     done
@@ -346,14 +359,14 @@ analyze_binary_file() {
                 # If the category matches an existing result, update it
                 if [[ "${result_substrings[0]}" == "$category" ]]; then
                    index=i
-                   results[i]="$category$delimiter${result_substrings[1]},$api$delimiter$file_path"
+                   results[i]="$category$delimiter${result_substrings[1]},$api$delimiter$(path_encode "$file_path")"
                    break
                 fi
             done
   
             # If no matching category found, add a new result
             if [[ $index -eq -1 ]]; then
-                results+=("$category$delimiter$api$delimiter$file_path")
+                results+=("$category$delimiter$api$delimiter$(path_encode "$file_path")")
             fi
         fi
     done
@@ -430,7 +443,7 @@ search_privacy_manifest_files() {
             fi
         done
         if [ $skip_file -eq 0 ]; then
-            privacy_manifest_files+=("$file_path")
+            privacy_manifest_files+=($(path_encode "$file_path"))
         fi
     done < "$tempfile"
 
@@ -441,7 +454,7 @@ get_privacy_manifest_file() {
     # If there are multiple privacy manifest files, return the one with the shortest path
     local privacy_manifest_file=$(printf "%s\n" "$@" | awk '{print length, $0}' | sort -n | head -n1 | cut -d ' ' -f2-)
     
-    echo "$privacy_manifest_file"
+    echo $(path_decode "$privacy_manifest_file")
 }
 
 check_privacy_manifest_file() {
