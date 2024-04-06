@@ -6,7 +6,29 @@
 * Support for privacy manifest missing analysis
 * Support for tagging commonly used SDKs
 
-Important: The scanning of required reason APIs is implemented based on [ios_17_required_reason_api_scanner](https://github.com/Wooder/ios_17_required_reason_api_scanner).
+**Important: The scanning of required reason APIs is implemented based on [ios_17_required_reason_api_scanner](https://github.com/Wooder/ios_17_required_reason_api_scanner).**
+
+## Requirements
+
+- macOS: [#1](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/issues/1)
+
+You can try executing the following command to determine if your Mac device supports the script:
+
+```shell
+xcrun swift -version
+```
+
+If the output after execution resembles the example below:
+
+```text
+swift-driver version: 1.90.11.1 Apple Swift version 5.10 (swiftlang-5.10.0.13 clang-1500.3.9.4)
+```
+
+Congratulations! You are now ready to start using the script. Should you encounter any other issues, you can attempt to install `Xcode Command Line Tools` using the following command:
+
+```shell
+xcode-select --install
+```
 
 ## Usage
 
@@ -92,9 +114,9 @@ sh privacy_manifest_analyser.sh <directory-path> >log.txt
 
 ## Notes
 
-If statically linked libraries use required reason APIs, you need to add a description of these required reason APIs to your app's privacy manifest, even if they have their own privacy manifest. 
+If static link library use required reason APIs, you need to add a description of these required reason APIs to your app's privacy manifest, even if they have their own privacy manifest. 
 
-The reason is that the code of the static link library and the code of the application are merged into a single executable file during compilation. It is recommended to run the script again for analysis after archiving:
+The reason is that the code of the static link libraries and the code of the application are merged into a single executable file during compilation. It is recommended to run the script again for analysis after archiving:
 
 ```shell
 sh privacy_manifest_analyser.sh <*.app>
