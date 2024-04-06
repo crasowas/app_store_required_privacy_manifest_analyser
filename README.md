@@ -10,7 +10,7 @@
 
 ## Requirements
 
-- macOS: [#1](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/issues/1)
+* macOS: [#1](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/issues/1)
 
 You can try executing the following command to determine if your Mac device supports the script:
 
@@ -35,7 +35,7 @@ xcode-select --install
 ### 1. Getting Started
 
 ```shell
-sh privacy_manifest_analyser.sh <directory-path>
+sh privacy_manifest_analyser.sh <directory_path>
 ```
 
 Example output:
@@ -103,14 +103,18 @@ For more information, please refer to: [Upcoming third-party SDK requirements](h
 `-e`: Specify directory to exclude from analysis
 
 ```shell
-sh privacy_manifest_analyser.sh -e <excluded_directory-path> <directory-path>
+sh privacy_manifest_analyser.sh -e <excluded_directory_path> <directory_path>
 ```
 
 ### 3. Saving Analysis Logs
 
 ```shell
-sh privacy_manifest_analyser.sh <directory-path> >log.txt
+sh privacy_manifest_analyser.sh <directory_path> >log.txt
 ```
+
+### 4. More Examples
+
+* [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/Examples/flutter_example)
 
 ## Notes
 

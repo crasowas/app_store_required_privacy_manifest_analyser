@@ -24,7 +24,7 @@ shift $((OPTIND - 1))
 
 # Check if a directory path parameter is provided
 if [ -z "$1" ]; then
-    echo "Usage: $0 <directory-path>"
+    echo "Usage: $0 <directory_path>"
     exit 1
 fi
 
