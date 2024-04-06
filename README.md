@@ -114,6 +114,7 @@ sh privacy_manifest_analyser.sh <directory_path> >log.txt
 
 ### 4. More Examples
 
+* [ios_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_example)
 * [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)
 
 ## Notes

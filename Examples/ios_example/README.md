@@ -1,0 +1,17 @@
+# ios_example
+
+A iOS project example used to test whether the privacy manifest analyzer is working.
+
+## Getting Started
+
+1. Execute `cd <ios_example_path>` command
+2. Execute `pod install` command
+3. Execute `sh ../../privacy_manifest_analyser.sh .` command
+
+## Notes
+
+`NSPrivacyAccessedAPICategoryFileTimestamp` and `NSPrivacyAccessedAPICategoryDiskSpace` have some overlapping APIs:
+
+* `getattrlist(_:_:_:_:_:)`
+* `fgetattrlist(_:_:_:_:_:)`
+* `getattrlistat(_:_:_:_:_:_:)`
