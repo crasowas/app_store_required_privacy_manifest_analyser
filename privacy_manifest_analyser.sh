@@ -280,6 +280,11 @@ path_decode() {
     echo "$1" | sed "s/$SPACE_ESCAPE/ /g";
 }
 
+# Function to filter comments from a source code file
+filter_comments() {
+    sed '/\/\*/,/\*\//d' "$1" | sed 's/\/\/.*//g'
+}
+
 is_excluded_dir() {
     local dir_name="$1"
     local excluded_dirs=("${@:2}")
@@ -316,7 +321,7 @@ analyze_source_code_file() {
         api=${substrings[1]}
     
         # Search for lines containing the API text in the source code file
-        lines=$(grep -n "$api" "$file_path" | cut -d ":" -f 1)
+        lines=$(filter_comments "$file_path" | grep -n "$api" | cut -d ":" -f 1)
         if [ -n "$lines" ]; then
             index=-1
             for ((i=0; i<${#results[@]}; i++)); do
