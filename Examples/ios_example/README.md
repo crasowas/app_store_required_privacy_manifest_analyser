@@ -8,6 +8,12 @@ A iOS project example used to test whether the privacy manifest analyzer is work
 2. Execute `pod install` command
 3. Execute `sh ../../privacy_manifest_analyser.sh .` command
 
+To disable comment filtering, please use the following command:
+
+```shell
+sh ../../privacy_manifest_analyser.sh -c .
+```
+
 ## Notes
 
 `NSPrivacyAccessedAPICategoryFileTimestamp` and `NSPrivacyAccessedAPICategoryDiskSpace` have some overlapping APIs:

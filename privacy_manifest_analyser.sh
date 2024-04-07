@@ -6,15 +6,20 @@
 # that can be found in the LICENSE file or at
 # https://opensource.org/licenses/MIT.
 
+# Keep comments during source code scanning when the `-c` option is enabled
+keep_comments=false
+
 # Array of directories excluded from analysis
 target_excluded_dirs=()
 
 # Parse command-line options
-while getopts "e:" opt; do
+while getopts ":ce:" opt; do
   case $opt in
+    c) keep_comments=true
+    ;;
     e) target_excluded_dirs+=("$OPTARG")
     ;;
-    \?) echo "Invalid option: $OPTARG" >&2
+    \?) echo "Invalid option: -$OPTARG" >&2
         exit 1
     ;;
   esac
@@ -282,7 +287,11 @@ path_decode() {
 
 # Function to filter comments from a source code file
 filter_comments() {
-    sed '/\/\*/,/\*\//d' "$1" | sed 's/\/\/.*//g'
+    if [ "$keep_comments" = false ]; then
+        sed '/\/\*/,/\*\//d' "$1" | sed 's/\/\/.*//g'
+    else
+        cat "$file_path"
+    fi
 }
 
 is_excluded_dir() {
