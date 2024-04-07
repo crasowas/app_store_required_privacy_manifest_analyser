@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		491C30A02BC2B6ED0000548E /* MMFileScanTesting.mm in Sources */ = {isa = PBXBuildFile; fileRef = 491C309F2BC2B6ED0000548E /* MMFileScanTesting.mm */; };
 		4999DD212BC1270200585CB3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4999DD202BC1270200585CB3 /* AppDelegate.swift */; };
 		4999DD232BC1270200585CB3 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4999DD222BC1270200585CB3 /* SceneDelegate.swift */; };
 		4999DD252BC1270200585CB3 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4999DD242BC1270200585CB3 /* ViewController.swift */; };
@@ -27,6 +28,8 @@
 
 /* Begin PBXFileReference section */
 		21DE96A8BB3EDEDE2F4379E2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
+		491C309E2BC2B6ED0000548E /* MMFileScanTesting.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MMFileScanTesting.h; sourceTree = "<group>"; };
+		491C309F2BC2B6ED0000548E /* MMFileScanTesting.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = MMFileScanTesting.mm; sourceTree = "<group>"; };
 		4999DD1D2BC1270200585CB3 /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4999DD202BC1270200585CB3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		4999DD222BC1270200585CB3 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -112,6 +115,8 @@
 		4999DD502BC1B31400585CB3 /* Test */ = {
 			isa = PBXGroup;
 			children = (
+				491C309E2BC2B6ED0000548E /* MMFileScanTesting.h */,
+				491C309F2BC2B6ED0000548E /* MMFileScanTesting.mm */,
 				4999DD512BC1B56400585CB3 /* ScanExclusionCommentTesting.swift */,
 			);
 			path = Test;
@@ -237,6 +242,7 @@
 				4999DD4C2BC1544800585CB3 /* APICategoryUserDefaults.swift in Sources */,
 				4999DD352BC1293700585CB3 /* APICategoryFileTimestamp.swift in Sources */,
 				4999DD3B2BC147AF00585CB3 /* APICategorySystemBootTime.swift in Sources */,
+				491C30A02BC2B6ED0000548E /* MMFileScanTesting.mm in Sources */,
 				4999DD452BC14B1500585CB3 /* APICategoryDiskSpace.swift in Sources */,
 				4999DD472BC1532900585CB3 /* APICategoryActiveKeyboards.swift in Sources */,
 				4999DD4F2BC1545500585CB3 /* APICategoryUserDefaultsOC.m in Sources */,
