@@ -100,7 +100,15 @@ For more information, please refer to: [Upcoming third-party SDK requirements](h
 
 ### 2. Command Line Options
 
-`-e`: Specify directory to exclude from analysis
+* `-c`: Specifies not to filter comments when scanning source code
+
+```shell
+sh privacy_manifest_analyser.sh -c <directory_path>
+```
+
+It is not recommended to enable this option for the accuracy of API scanning.
+
+* `-e`: Specify directory to exclude from analysis
 
 ```shell
 sh privacy_manifest_analyser.sh -e <excluded_directory_path> <directory_path>

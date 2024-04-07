@@ -6,15 +6,20 @@
 # that can be found in the LICENSE file or at
 # https://opensource.org/licenses/MIT.
 
+# Keep comments during source code scanning when the `-c` option is enabled
+keep_comments=false
+
 # Array of directories excluded from analysis
 target_excluded_dirs=()
 
 # Parse command-line options
-while getopts "e:" opt; do
+while getopts ":ce:" opt; do
   case $opt in
+    c) keep_comments=true
+    ;;
     e) target_excluded_dirs+=("$OPTARG")
     ;;
-    \?) echo "Invalid option: $OPTARG" >&2
+    \?) echo "Invalid option: -$OPTARG" >&2
         exit 1
     ;;
   esac
@@ -42,8 +47,6 @@ frameworks_dir="$target_dir/Frameworks"
 # Exclude directories to be separately analyzed
 target_excluded_dirs+=("$pods_dir" "$flutter_plugins_dir" "$frameworks_dir")
 
-privacy_manifest_file_name="PrivacyInfo.xcprivacy"
-
 # Analysis indicators
 found_count=0
 warning_count=0
@@ -51,8 +54,10 @@ issue_count=0
 completed_count=0
 common_sdk_count=0
 
+readonly PRIVACY_MANIFEST_FILE_NAME="PrivacyInfo.xcprivacy"
+
 # Defines the delimiter used to splice APIs and their categories
-delimiter=":"
+readonly DELIMITER=":"
 
 # Define the space escape symbol to handle the issue of space within path
 readonly SPACE_ESCAPE="\u0020"
@@ -63,52 +68,52 @@ readonly SPACE_ESCAPE="\u0020"
 #   * https://github.com/Wooder/ios_17_required_reason_api_scanner/blob/main/required_reason_api_text_scanner.sh
 readonly API_TEXTS=(
     # NSPrivacyAccessedAPICategoryFileTimestamp
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.creationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.modificationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.fileModificationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.contentModificationDateKey"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}.creationDateKey"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlist("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlistbulk("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fgetattrlist("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}stat.st_"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fstat("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fstatat("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}lstat("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlistat("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSFileCreationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSFileModificationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSURLContentModificationDateKey"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSURLCreationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.creationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.modificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.fileModificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.contentModificationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.creationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlist("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlistbulk("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fgetattrlist("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}stat.st_"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fstat("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fstatat("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}lstat("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlistat("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSFileCreationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSFileModificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSURLContentModificationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSURLCreationDateKey"
     # NSPrivacyAccessedAPICategorySystemBootTime
-    "NSPrivacyAccessedAPICategorySystemBootTime${delimiter}systemUptime"
-    "NSPrivacyAccessedAPICategorySystemBootTime${delimiter}mach_absolute_time()"
+    "NSPrivacyAccessedAPICategorySystemBootTime${DELIMITER}systemUptime"
+    "NSPrivacyAccessedAPICategorySystemBootTime${DELIMITER}mach_absolute_time()"
     # NSPrivacyAccessedAPICategoryDiskSpace
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}volumeAvailableCapacityKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}volumeAvailableCapacityForImportantUsageKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}volumeAvailableCapacityForOpportunisticUsageKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}volumeTotalCapacityKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}systemFreeSize"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}systemSize"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}statfs("
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}statvfs("
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fstatfs("
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fstatvfs("
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}getattrlist("
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fgetattrlist("
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}getattrlistat("
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityForImportantUsageKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityForOpportunisticUsageKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeTotalCapacityKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSFileSystemFreeSize"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSFileSystemSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}volumeAvailableCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}volumeAvailableCapacityForImportantUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}volumeAvailableCapacityForOpportunisticUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}volumeTotalCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}systemFreeSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}systemSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}statfs("
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}statvfs("
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fstatfs("
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fstatvfs("
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}getattrlist("
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fgetattrlist("
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}getattrlistat("
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeAvailableCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeAvailableCapacityForImportantUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeAvailableCapacityForOpportunisticUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeTotalCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSFileSystemFreeSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSFileSystemSize"
     # NSPrivacyAccessedAPICategoryActiveKeyboards
-    "NSPrivacyAccessedAPICategoryActiveKeyboards${delimiter}activeInputModes"
+    "NSPrivacyAccessedAPICategoryActiveKeyboards${DELIMITER}activeInputModes"
     # NSPrivacyAccessedAPICategoryUserDefaults
-    "NSPrivacyAccessedAPICategoryUserDefaults${delimiter}UserDefaults"
-    "NSPrivacyAccessedAPICategoryUserDefaults${delimiter}NSUserDefaults"
-    "NSPrivacyAccessedAPICategoryUserDefaults${delimiter}AppStorage"
+    "NSPrivacyAccessedAPICategoryUserDefaults${DELIMITER}UserDefaults"
+    "NSPrivacyAccessedAPICategoryUserDefaults${DELIMITER}NSUserDefaults"
+    "NSPrivacyAccessedAPICategoryUserDefaults${DELIMITER}AppStorage"
 )
 
 # Symbol of the required reason APIs and their categories
@@ -117,36 +122,36 @@ readonly API_TEXTS=(
 #   * https://github.com/Wooder/ios_17_required_reason_api_scanner/blob/main/required_reason_api_binary_scanner.sh
 readonly API_SYMBOLS=(
     # NSPrivacyAccessedAPICategoryFileTimestamp
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlist"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlistbulk"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fgetattrlist"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}stat"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fstat"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}fstatat"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}lstat"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}getattrlistat"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSFileCreationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSFileModificationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSURLContentModificationDateKey"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${delimiter}NSURLCreationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlist"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlistbulk"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fgetattrlist"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}stat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fstat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fstatat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}lstat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlistat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSFileCreationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSFileModificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSURLContentModificationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSURLCreationDateKey"
     # NSPrivacyAccessedAPICategorySystemBootTime
-    "NSPrivacyAccessedAPICategorySystemBootTime${delimiter}systemUptime"
-    "NSPrivacyAccessedAPICategorySystemBootTime${delimiter}mach_absolute_time"
+    "NSPrivacyAccessedAPICategorySystemBootTime${DELIMITER}systemUptime"
+    "NSPrivacyAccessedAPICategorySystemBootTime${DELIMITER}mach_absolute_time"
     # NSPrivacyAccessedAPICategoryDiskSpace
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}statfs"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}statvfs"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fstatfs"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}fstatvfs"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSFileSystemFreeSize"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSFileSystemSize"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityForImportantUsageKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeAvailableCapacityForOpportunisticUsageKey"
-    "NSPrivacyAccessedAPICategoryDiskSpace${delimiter}NSURLVolumeTotalCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}statfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}statvfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fstatfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fstatvfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSFileSystemFreeSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSFileSystemSize"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeAvailableCapacityKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeAvailableCapacityForImportantUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeAvailableCapacityForOpportunisticUsageKey"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeTotalCapacityKey"
     # NSPrivacyAccessedAPICategoryActiveKeyboards
-    "NSPrivacyAccessedAPICategoryActiveKeyboards${delimiter}activeInputModes"
+    "NSPrivacyAccessedAPICategoryActiveKeyboards${DELIMITER}activeInputModes"
     # NSPrivacyAccessedAPICategoryUserDefaults
-    "NSPrivacyAccessedAPICategoryUserDefaults${delimiter}NSUserDefaults"
+    "NSPrivacyAccessedAPICategoryUserDefaults${DELIMITER}NSUserDefaults"
 )
 
 # List of commonly used SDKs
@@ -265,7 +270,7 @@ split_string_by_delimiter() {
     local string="$1"
     local -a substrings=()
 
-    IFS="$delimiter" read -ra substrings <<< "$string"
+    IFS="$DELIMITER" read -ra substrings <<< "$string"
 
     echo "${substrings[@]}"
 }
@@ -278,6 +283,15 @@ path_encode() {
 # Decode a path string by replacing encoded character with space
 path_decode() {
     echo "$1" | sed "s/$SPACE_ESCAPE/ /g";
+}
+
+# Function to filter comments from a source code file
+filter_comments() {
+    if [ "$keep_comments" = false ]; then
+        sed '/\/\*/,/\*\//d' "$1" | sed 's/\/\/.*//g'
+    else
+        cat "$file_path"
+    fi
 }
 
 is_excluded_dir() {
@@ -316,7 +330,7 @@ analyze_source_code_file() {
         api=${substrings[1]}
     
         # Search for lines containing the API text in the source code file
-        lines=$(grep -n "$api" "$file_path" | cut -d ":" -f 1)
+        lines=$(filter_comments "$file_path" | grep -n "$api" | cut -d ":" -f 1)
         if [ -n "$lines" ]; then
             index=-1
             for ((i=0; i<${#results[@]}; i++)); do
@@ -325,14 +339,14 @@ analyze_source_code_file() {
                 # If the category matches an existing result, update it
                 if [[ "${result_substrings[0]}" == "$category" ]]; then
                    index=i
-                   results[i]="$category$delimiter${result_substrings[1]},$api$delimiter$(path_encode "$file_path")"
+                   results[i]="$category$DELIMITER${result_substrings[1]},$api$DELIMITER$(path_encode "$file_path")"
                    break
                 fi
             done
             
             # If no matching category found, add a new result
             if [[ $index -eq -1 ]]; then
-                results+=("$category$delimiter$api$delimiter$(path_encode "$file_path")")
+                results+=("$category$DELIMITER$api$DELIMITER$(path_encode "$file_path")")
             fi
         fi
     done
@@ -359,14 +373,14 @@ analyze_binary_file() {
                 # If the category matches an existing result, update it
                 if [[ "${result_substrings[0]}" == "$category" ]]; then
                    index=i
-                   results[i]="$category$delimiter${result_substrings[1]},$api$delimiter$(path_encode "$file_path")"
+                   results[i]="$category$DELIMITER${result_substrings[1]},$api$DELIMITER$(path_encode "$file_path")"
                    break
                 fi
             done
   
             # If no matching category found, add a new result
             if [[ $index -eq -1 ]]; then
-                results+=("$category$delimiter$api$delimiter$(path_encode "$file_path")")
+                results+=("$category$DELIMITER$api$DELIMITER$(path_encode "$file_path")")
             fi
         fi
     done
@@ -431,7 +445,7 @@ search_privacy_manifest_files() {
     trap "rm -f $tempfile" EXIT
 
     # Find privacy manifest files within the specified directory and store the results in the temporary file
-    find "$dir_path" -type f -name "$privacy_manifest_file_name" -print0 2>/dev/null > "$tempfile"
+    find "$dir_path" -type f -name "$PRIVACY_MANIFEST_FILE_NAME" -print0 2>/dev/null > "$tempfile"
 
     # Exclude privacy manifest files within excluded directories
     while IFS= read -r -d '' file_path; do
