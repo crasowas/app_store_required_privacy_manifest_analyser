@@ -54,9 +54,12 @@ issue_count=0
 completed_count=0
 common_sdk_count=0
 
+# Define an array variable to store analysis results that affect the application's privacy manifest
+app_privacy_manifest_effect_results=()
+
 readonly PRIVACY_MANIFEST_FILE_NAME="PrivacyInfo.xcprivacy"
 
-# Defines the delimiter used to splice APIs and their categories
+# Define the delimiter used to splice APIs and their categories
 readonly DELIMITER=":"
 
 # Define the space escape symbol to handle the issue of space within path
@@ -287,10 +290,21 @@ path_decode() {
 
 # Function to filter comments from a source code file
 filter_comments() {
-    if [ "$keep_comments" = false ]; then
+    if [ "$keep_comments" == false ]; then
         sed '/\/\*/,/\*\//d' "$1" | sed 's/\/\/.*//g'
     else
         cat "$file_path"
+    fi
+}
+
+# Function to check if a file is a dynamically linked library
+is_dynamically_linked_lib() {
+    local file_info=$(file "$1")
+    
+    if [[ $file_info == *"dynamically linked"* ]]; then
+        return 0
+    else
+        return 1
     fi
 }
 
@@ -339,7 +353,7 @@ analyze_source_code_file() {
                 # If the category matches an existing result, update it
                 if [[ "${result_substrings[0]}" == "$category" ]]; then
                    index=i
-                   results[i]="$category$DELIMITER${result_substrings[1]},$api$DELIMITER$(path_encode "$file_path")"
+                   results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
                    break
                 fi
             done
@@ -373,7 +387,7 @@ analyze_binary_file() {
                 # If the category matches an existing result, update it
                 if [[ "${result_substrings[0]}" == "$category" ]]; then
                    index=i
-                   results[i]="$category$DELIMITER${result_substrings[1]},$api$DELIMITER$(path_encode "$file_path")"
+                   results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
                    break
                 fi
             done
@@ -537,11 +551,19 @@ analyze() {
     check_privacy_manifest_file "${privacy_manifest_files[@]}"
     print_array "${privacy_manifest_files[@]}"
     
-    analysis_results=($(analyze_api_usage "$dir_path" "${excluded_dirs[@]}"))
-    echo "API usage analysis result(s): ${#analysis_results[@]}"
-    print_array "${analysis_results[@]}"
+    results=($(analyze_api_usage "$dir_path" "${excluded_dirs[@]}"))
+    echo "API usage analysis result(s): ${#results[@]}"
+    print_array "${results[@]}"
     
-    categories=($(get_categories "${analysis_results[@]}"))
+    # Save affects the analysis results of the application's privacy manifest
+    for result in "${results[@]}"; do
+        result_substrings=($(split_string_by_delimiter "$result"))
+        if ! is_dynamically_linked_lib "$(path_decode "${result_substrings[2]}")"; then
+            app_privacy_manifest_effect_results+=("$result")
+        fi
+    done
+    
+    categories=($(get_categories "${results[@]}"))
     check_categories "$(get_privacy_manifest_file "${privacy_manifest_files[@]}")" "${categories[@]}"
 }
 
@@ -625,6 +647,18 @@ analyze_pods_dir
 analyze_flutter_plugins_dir
 analyze_frameworks_dir
 
-echo "Analysis completed! 💡: $found_count ⚠️ : $warning_count 🛠️ : $issue_count ✅: $completed_count 🎯: $common_sdk_count."
-echo "⚠️ 🛠️ : https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api"
-echo "🎯: https://developer.apple.com/support/third-party-SDK-requirements"
+print_title "Analysis completed! 💡: $found_count ⚠️ : $warning_count 🛠️ : $issue_count ✅: $completed_count 🎯: $common_sdk_count"
+
+echo "⚠️ 🛠️  https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api"
+echo "🎯 https://developer.apple.com/support/third-party-SDK-requirements"
+
+if [[ ${#app_privacy_manifest_effect_results[@]} -gt 0 ]]; then
+    echo ""
+    echo "🔔 If the directory you are analyzing is the app project directory, your app's privacy manifest may be affected by these analysis results: ${#app_privacy_manifest_effect_results[@]}"
+    print_array "${app_privacy_manifest_effect_results[@]}"
+fi
+
+echo ""
+echo "🌟 If you found this script helpful, please consider giving it a star on GitHub. Your support is appreciated. Thank you!"
+echo "🔗 Homepage: https://github.com/crasowas/app_store_required_privacy_manifest_analyser"
+echo ""
