@@ -580,7 +580,7 @@ analyze_lib_dir() {
     local dir_name=$(basename "$lib_path")
     
     # Remove version name for Flutter plugin libraries
-    local lib_name="${dir_name%-[0-9].[0-9].[0-9]*}"
+    local lib_name="${dir_name%-[0-9]*}"
     # Remove .app and .framework suffixes
     lib_name="${lib_name%.*}"
     
