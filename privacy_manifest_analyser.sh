@@ -35,8 +35,10 @@ fi
 
 target_dir=$1
 
+pod_file="$target_dir/Podfile"
 # Pods directory will be separately analyzed if it's a Cocoa project
 pods_dir="$target_dir/Pods"
+pods_pbxproj_file="$pods_dir/Pods.xcodeproj/project.pbxproj"
 # Exclude non-library directories within the Pods directory
 pods_excluded_dirs=("$pods_dir/Pods.xcodeproj" "$pods_dir/Target Support Files" "$pods_dir/Local Podspecs" "$pods_dir/Headers")
 # Flutter plugins directory will be separately analyzed if it's a Flutter project
@@ -54,10 +56,16 @@ issue_count=0
 completed_count=0
 common_sdk_count=0
 
+is_use_frameworks=false
+# Define an array variable to store the `MACH_O_TYPE` property of libraries
+mach_o_types=()
+
 # Define an array variable to store analysis results that affect the application's privacy manifest
 app_privacy_manifest_effect_results=()
 
 readonly PRIVACY_MANIFEST_FILE_NAME="PrivacyInfo.xcprivacy"
+
+readonly MACH_O_TYPE_STATIC_LIB="staticlib"
 
 # Define the delimiter used to splice APIs and their categories
 readonly DELIMITER=":"
@@ -297,6 +305,17 @@ filter_comments() {
     fi
 }
 
+# Function to check if a file is a statically linked library
+is_statically_linked_lib() {
+    local file_info=$(file "$1")
+    
+    if [[ $file_info == *"current ar archive"* ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Function to check if a file is a dynamically linked library
 is_dynamically_linked_lib() {
     local file_info=$(file "$1")
@@ -306,6 +325,76 @@ is_dynamically_linked_lib() {
     else
         return 1
     fi
+}
+
+# Function to check if `use_frameworks!` is specified in the Podfile
+check_use_frameworks() {
+    local file_path="$1"
+
+    if grep -qE "^[^#]*\buse_frameworks!\b" "$file_path"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to search for `MACH_O_TYPE` properties from a project.pbxproj file
+search_mach_o_types() {
+    local file_path="$1"
+    
+    awk '
+        BEGIN {
+            in_configuration_section = 0;
+            library_name = "";
+            mach_o_type = "";
+        }
+        # Match the beginning of configuration section
+        /Begin XCBuildConfiguration section/ {
+            in_configuration_section = 1;
+        }
+        # Match the end of configuration section
+        /End XCBuildConfiguration section/ {
+            in_configuration_section = 0;
+        }
+        # Within the configuration section, match the beginning
+        in_configuration_section && /isa = XCBuildConfiguration;/ {
+            library_name = "";
+            mach_o_type = "";
+        }
+        # Within the configuration section, match the library name
+        in_configuration_section && /PRODUCT_MODULE_NAME/ {
+            sub(/^[[:space:]]+/, "");
+            gsub(/;/, "");
+            library_name = $3;
+        }
+        # Within the configuration section, match the `MACH_O_TYPE` property
+        in_configuration_section && /MACH_O_TYPE/ {
+            sub(/^[[:space:]]+/, "");
+            gsub(/;/, "");
+            mach_o_type = $3;
+        }
+        # Output the result
+        {
+            if (library_name != "" && !processed_libs[library_name]) {
+                processed_libs[library_name] = 1;
+                print library_name ":" mach_o_type;
+            }
+        }
+    ' "$file_path"
+}
+
+get_mach_o_type() {
+    local lib_name="$1"
+    
+    for mach_o_type in "${mach_o_types[@]}"; do
+        mach_o_type_substrings=($(split_string_by_delimiter "$mach_o_type"))
+        if [[ "${mach_o_type_substrings[0]}" == "$lib_name" ]]; then
+            echo "${mach_o_type_substrings[1]}"
+            return
+        fi
+    done
+    
+    echo ""
 }
 
 is_excluded_dir() {
@@ -506,7 +595,7 @@ get_categories() {
         substrings=($(split_string_by_delimiter "$result"))
         category=${substrings[0]}
         if ! [[ "$(IFS=" "; echo "${categories[@]}")" =~ "$category" ]]; then
-                categories+=("$category")
+            categories+=("$category")
         fi
     done
     
@@ -545,7 +634,8 @@ check_categories() {
 # Function to analyze directory for privacy manifest file and API usage
 analyze() {
     local dir_path="$1"
-    local excluded_dirs=("${@:2}")
+    local mach_o_type="$2"
+    local excluded_dirs=("${@:3}")
     
     privacy_manifest_files=($(search_privacy_manifest_files "$dir_path" "${excluded_dirs[@]}"))
     check_privacy_manifest_file "${privacy_manifest_files[@]}"
@@ -554,24 +644,37 @@ analyze() {
     results=($(analyze_api_usage "$dir_path" "${excluded_dirs[@]}"))
     echo "API usage analysis result(s): ${#results[@]}"
     print_array "${results[@]}"
-    
-    # Save affects the analysis results of the application's privacy manifest
-    for result in "${results[@]}"; do
-        result_substrings=($(split_string_by_delimiter "$result"))
-        if ! is_dynamically_linked_lib "$(path_decode "${result_substrings[2]}")"; then
-            app_privacy_manifest_effect_results+=("$result")
-        fi
-    done
-    
+
     categories=($(get_categories "${results[@]}"))
     check_categories "$(get_privacy_manifest_file "${privacy_manifest_files[@]}")" "${categories[@]}"
+    
+    # Save affects the analysis results of the application's privacy manifest
+    if [ -n "$mach_o_type" ]; then
+        # If identified as a static library, all analysis results may affect the application's privacy manifest
+        if [[ "$mach_o_type" == "$MACH_O_TYPE_STATIC_LIB" ]]; then
+            app_privacy_manifest_effect_results+=("${results[@]}")
+        fi
+    else
+        for result in "${results[@]}"; do
+            result_substrings=($(split_string_by_delimiter "$result"))
+            file_path="$(path_decode "${result_substrings[2]}")"
+            # When the `MACH_O_TYPE` property is empty, the following scenarios are considered:
+            # 1. If `use_frameworks` is specified in the `Podfile`, the library is treated as `mh_dylib`, assuming it is a dynamic library. In this case, the statically linked libraries within it may affect the application's privacy manifest
+            # 2. If `use_frameworks` is not specified in the `Podfile`, the library is treated as `staticlib`, assuming it is a static library. In this case, the non-dynamically linked libraries within it may affect the application's privacy manifest
+            if [[ "$is_use_frameworks" == true ]] && is_statically_linked_lib "$file_path"; then
+                app_privacy_manifest_effect_results+=("$result")
+            elif [[ "$is_use_frameworks" == false ]] && ! is_dynamically_linked_lib "$file_path"; then
+                app_privacy_manifest_effect_results+=("$result")
+            fi
+        done
+    fi
 }
 
 # Function to analyze the target directory
 analyze_target_dir() {
     print_title "Analyzing Target Directory"
     
-    analyze "$target_dir" "${target_excluded_dirs[@]}"
+    analyze "$target_dir" "$MACH_O_TYPE_STATIC_LIB" "${target_excluded_dirs[@]}"
 }
 
 # Function to analyze a library directory
@@ -584,6 +687,9 @@ analyze_lib_dir() {
     # Remove .app and .framework suffixes
     lib_name="${lib_name%.*}"
     
+    # Get the `MACH_O_TYPE` property based on the library name
+    local mach_o_type=$(get_mach_o_type "$lib_name")
+    
     # Check if the library is a common SDK
     if is_common_sdk "$lib_name"; then
         ((common_sdk_count++))
@@ -592,7 +698,7 @@ analyze_lib_dir() {
         echo "Analyzing $dir_name ..."
     fi
     
-    analyze "$path"
+    analyze "$path" "$mach_o_type"
     echo ""
 }
 
@@ -603,6 +709,18 @@ analyze_pods_dir() {
     fi
     
     print_title "Analyzing Pods Directory"
+    
+    if [ -f "$pod_file" ]; then
+        if check_use_frameworks "$pod_file"; then
+            is_use_frameworks=true
+        else
+            is_use_frameworks=false
+        fi
+    fi
+    
+    if [ -f "$pods_pbxproj_file" ]; then
+        mach_o_types=($(search_mach_o_types "$pods_pbxproj_file"))
+    fi
     
     for path in "$pods_dir"/*; do
         if [ -d "$path" ] && ! is_excluded_dir "$path" "${pods_excluded_dirs[@]}"; then
@@ -661,4 +779,5 @@ fi
 echo ""
 echo "🌟 If you found this script helpful, please consider giving it a star on GitHub. Your support is appreciated. Thank you!"
 echo "🔗 Homepage: https://github.com/crasowas/app_store_required_privacy_manifest_analyser"
+echo "🐛 Report issues: https://github.com/crasowas/app_store_required_privacy_manifest_analyser/issues"
 echo ""
