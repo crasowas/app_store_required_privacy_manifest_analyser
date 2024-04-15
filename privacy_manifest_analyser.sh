@@ -49,6 +49,10 @@ frameworks_dir="$target_dir/Frameworks"
 # Exclude directories to be separately analyzed
 target_excluded_dirs+=("$pods_dir" "$flutter_plugins_dir" "$frameworks_dir")
 
+# Temporary file for keeping track of traversed directories
+visited_dirs_tempfile=$(mktemp)
+trap "rm -f $visited_dirs_tempfile" EXIT
+
 # Analysis indicators
 found_count=0
 warning_count=0
@@ -398,16 +402,29 @@ get_mach_o_type() {
 }
 
 is_excluded_dir() {
-    local dir_name="$1"
+    local dir_path="$1"
     local excluded_dirs=("${@:2}")
     
     for excluded_dir in "${excluded_dirs[@]}"; do
-        if [ "$dir_name" == "$excluded_dir" ]; then
+        if [ "$dir_path" == "$excluded_dir" ]; then
             return 0
         fi
     done
     
     return 1
+}
+
+is_visited_dir() {
+    local dir_path="$1"
+    
+    dir_path=$(readlink -f "$dir_path")
+    
+    if grep -qFx "$dir_path" "$visited_dirs_tempfile"; then
+        return 0
+    else
+        echo "$dir_path" >> "$visited_dirs_tempfile"
+        return 1
+    fi
 }
 
 is_common_sdk() {
@@ -499,6 +516,11 @@ analyze_api_usage() {
     
     # Check if the directory is excluded from analysis
     if is_excluded_dir "$dir_path" "${excluded_dirs[@]}"; then
+        return
+    fi
+    
+    # Check if the directory has been visited during analysis
+    if is_visited_dir "$dir_path"; then
         return
     fi
     
