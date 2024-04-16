@@ -1,5 +1,5 @@
 //
-//  MMFileScanTesting.h
+//  MMFileScanTest.h
 //  App
 //
 //  Created by crasowas on 2024/4/7.
@@ -9,7 +9,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface MMFileScanTesting : NSObject
+@interface MMFileScanTest : NSObject
 
 - (void)test;
 

@@ -49,7 +49,7 @@ frameworks_dir="$target_dir/Frameworks"
 # Exclude directories to be separately analyzed
 target_excluded_dirs+=("$pods_dir" "$flutter_plugins_dir" "$frameworks_dir")
 
-# Temporary file for keeping track of traversed directories
+# Temporary file for keeping track of recursively traversed directories
 visited_dirs_tempfile=$(mktemp)
 trap "rm -f $visited_dirs_tempfile" EXIT
 

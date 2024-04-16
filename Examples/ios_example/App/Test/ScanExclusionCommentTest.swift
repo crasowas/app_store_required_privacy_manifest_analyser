@@ -1,5 +1,5 @@
 //
-//  ScanExclusionCommentTesting.swift
+//  ScanExclusionCommentTest.swift
 //  App
 //
 //  Created by crasowas on 2024/4/6.
@@ -7,7 +7,7 @@
 
 import UIKit
 
-class ScanExclusionCommentTesting: NSObject {
+class ScanExclusionCommentTest: NSObject {
     
     // creationDate
     

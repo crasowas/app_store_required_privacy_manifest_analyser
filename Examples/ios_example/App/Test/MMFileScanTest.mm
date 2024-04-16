@@ -1,13 +1,13 @@
 //
-//  MMFileScanTesting.mm
+//  MMFileScanTest.mm
 //  App
 //
 //  Created by crasowas on 2024/4/7.
 //
 
-#import "MMFileScanTesting.h"
+#import "MMFileScanTest.h"
 
-@implementation MMFileScanTesting
+@implementation MMFileScanTest
 
 - (void)test {
     

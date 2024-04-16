@@ -1,3 +1,7 @@
+## 2024-04-16
+* Fix recursive infinite loop issue caused by symbolic links.
+* Add directories for recursive testing.
+
 ## 2024-04-11
 * Enhance analysis of API usage affecting app's privacy manifest.
 * Add CHANGELOG.
