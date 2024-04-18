@@ -782,12 +782,16 @@ analyze_frameworks_dir() {
     done
 }
 
+start_time=$(date +%s)
+
 analyze_target_dir
 analyze_pods_dir
 analyze_flutter_plugins_dir
 analyze_frameworks_dir
 
-print_title "Analysis completed! 💡: $found_count ⚠️ : $warning_count 🛠️ : $issue_count ✅: $completed_count 🎯: $common_sdk_count"
+end_time=$(date +%s)
+
+print_title "Analysis completed! ⏰: $((end_time - start_time))s 💡: $found_count ⚠️ : $warning_count 🛠️ : $issue_count ✅: $completed_count 🎯: $common_sdk_count"
 
 echo "⚠️ 🛠️  https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api"
 echo "🎯 https://developer.apple.com/support/third-party-SDK-requirements"
