@@ -83,26 +83,26 @@ readonly SPACE_ESCAPE="\u0020"
 #   * https://github.com/Wooder/ios_17_required_reason_api_scanner/blob/main/required_reason_api_text_scanner.sh
 readonly API_TEXTS=(
     # NSPrivacyAccessedAPICategoryFileTimestamp
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.creationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.modificationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.fileModificationDate"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.contentModificationDateKey"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}.creationDateKey"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlist("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlistbulk("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fgetattrlist("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}stat.st_"
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fstat("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fstatat("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}lstat("
-    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlistat("
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}creationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}modificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fileModificationDate"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}contentModificationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}creationDateKey"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlist"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlistbulk"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fgetattrlist"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}stat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fstat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}fstatat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}lstat"
+    "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}getattrlistat"
     "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSFileCreationDate"
     "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSFileModificationDate"
     "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSURLContentModificationDateKey"
     "NSPrivacyAccessedAPICategoryFileTimestamp${DELIMITER}NSURLCreationDateKey"
     # NSPrivacyAccessedAPICategorySystemBootTime
     "NSPrivacyAccessedAPICategorySystemBootTime${DELIMITER}systemUptime"
-    "NSPrivacyAccessedAPICategorySystemBootTime${DELIMITER}mach_absolute_time()"
+    "NSPrivacyAccessedAPICategorySystemBootTime${DELIMITER}mach_absolute_time"
     # NSPrivacyAccessedAPICategoryDiskSpace
     "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}volumeAvailableCapacityKey"
     "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}volumeAvailableCapacityForImportantUsageKey"
@@ -110,13 +110,13 @@ readonly API_TEXTS=(
     "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}volumeTotalCapacityKey"
     "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}systemFreeSize"
     "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}systemSize"
-    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}statfs("
-    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}statvfs("
-    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fstatfs("
-    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fstatvfs("
-    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}getattrlist("
-    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fgetattrlist("
-    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}getattrlistat("
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}statfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}statvfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fstatfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fstatvfs"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}getattrlist"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}fgetattrlist"
+    "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}getattrlistat"
     "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeAvailableCapacityKey"
     "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeAvailableCapacityForImportantUsageKey"
     "NSPrivacyAccessedAPICategoryDiskSpace${DELIMITER}NSURLVolumeAvailableCapacityForOpportunisticUsageKey"
@@ -449,9 +449,8 @@ analyze_source_code_file() {
         category=${substrings[0]}
         api=${substrings[1]}
     
-        # Search for lines containing the API text in the source code file
-        lines=$(filter_comments "$file_path" | grep -n "$api" | cut -d ":" -f 1)
-        if [ -n "$lines" ]; then
+        # Check if the API text exists in the source code
+        if filter_comments "$file_path" | grep -qFw "$api"; then
             index=-1
             for ((i=0; i<${#results[@]}; i++)); do
                 result="${results[i]}"
