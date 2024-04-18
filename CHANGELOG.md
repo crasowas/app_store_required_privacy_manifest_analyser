@@ -1,3 +1,8 @@
+## 2024-04-18
+* Add display of total time spent on analysis.
+* Enhance source file analysis efficiency through optimized grep command usage.
+* Reduce time spent on comment filtering by optimizing usage of sed command.
+
 ## 2024-04-16
 * Fix recursive infinite loop issue caused by symbolic links.
 * Add directories for recursive testing.
