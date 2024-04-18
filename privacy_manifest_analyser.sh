@@ -303,7 +303,7 @@ path_decode() {
 # Function to filter comments from a source code file
 filter_comments() {
     if [ "$keep_comments" == false ]; then
-        sed '/\/\*/,/\*\//d' "$1" | sed 's/\/\/.*//g'
+        sed -e '/\/\*/,/\*\//d' -e 's/\/\/.*//g' "$1"
     else
         cat "$file_path"
     fi
