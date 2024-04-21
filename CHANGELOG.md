@@ -1,3 +1,6 @@
+## 2024-04-21
+* Add color to shell script output for improved readability.
+
 ## 2024-04-18
 * Add display of total time spent on analysis.
 * Enhance source file analysis efficiency through optimized grep command usage.

@@ -77,6 +77,11 @@ readonly DELIMITER=":"
 # Define the space escape symbol to handle the issue of space within path
 readonly SPACE_ESCAPE="\u0020"
 
+# ANSI color codes
+readonly GREEN_COLOR="\033[0;32m"
+readonly YELLOW_COLOR="\033[0;33m"
+readonly RESET_COLOR="\033[0m"
+
 # Text of the required reason APIs and their categories
 # See also:
 #   * https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
@@ -267,8 +272,19 @@ print_title() {
     local border="===================="
 
     echo ""
-    echo "${border} $title ${border}"
+    echo "$border $title $border"
     echo ""
+}
+
+# Print a text with or without color
+print_text() {
+    local text="$1"
+
+    if [ -t 1 ]; then
+        echo "$text"
+    else
+        echo "$text" | sed -E 's/\x1B\[[0-9;]*m//g'
+    fi
 }
 
 # Print the elements of an array along with their indices
@@ -276,7 +292,7 @@ print_array() {
     local -a array=("$@")
     
     for ((i=0; i<${#array[@]}; i++)); do
-        echo "[$i] $(path_decode "${array[i]}")"
+        print_text "[$i] $(path_decode "${array[i]}")"
     done
 }
 
@@ -647,6 +663,11 @@ check_categories() {
         fi
     else
         ((issue_count++))
+        
+        for ((i=0; i<${#miss_categories[@]}; i++)); do
+            miss_categories[$i]="$YELLOW_COLOR${miss_categories[$i]}$RESET_COLOR"
+        done
+        
         echo "🛠️  Descriptions for the following required API reason(s) may be missing: ${#miss_categories[@]}"
         print_array "${miss_categories[@]}"
     fi
@@ -714,9 +735,9 @@ analyze_lib_dir() {
     # Check if the library is a common SDK
     if is_common_sdk "$lib_name"; then
         ((common_sdk_count++))
-        echo "Analyzing $dir_name 🎯 ..."
+        print_text "Analyzing $GREEN_COLOR$dir_name$RESET_COLOR 🎯 ..."
     else
-        echo "Analyzing $dir_name ..."
+        print_text "Analyzing $GREEN_COLOR$dir_name$RESET_COLOR ..."
     fi
     
     analyze "$path" "$mach_o_type"
