@@ -283,7 +283,7 @@ print_text() {
     if [ -t 1 ]; then
         echo "$text"
     else
-        echo "$text" | sed -E 's/\x1B\[[0-9;]*m//g'
+        echo "$text" | sed "s/\x1B\[[0-9;]*m//g"
     fi
 }
 
@@ -292,7 +292,7 @@ print_array() {
     local -a array=("$@")
     
     for ((i=0; i<${#array[@]}; i++)); do
-        print_text "[$i] $(path_decode "${array[i]}")"
+        print_text "[$i] $(decode_path "${array[i]}")"
     done
 }
 
@@ -307,19 +307,19 @@ split_string_by_delimiter() {
 }
 
 # Encode a path string by replacing space with an escape character
-path_encode() {
+encode_path() {
     echo "$1" | sed "s/ /$SPACE_ESCAPE/g";
 }
 
 # Decode a path string by replacing encoded character with space
-path_decode() {
+decode_path() {
     echo "$1" | sed "s/$SPACE_ESCAPE/ /g";
 }
 
 # Function to filter comments from a source code file
 filter_comments() {
     if [ "$keep_comments" == false ]; then
-        sed -e '/\/\*/,/\*\//d' -e 's/\/\/.*//g' "$1"
+        sed -e "/\/\*/,/\*\//d" -e "s/\/\/.*//g" "$1"
     else
         cat "$file_path"
     fi
@@ -481,7 +481,7 @@ analyze_source_code_file() {
             
             # If no matching category found, add a new result
             if [[ $index -eq -1 ]]; then
-                results+=("$category$DELIMITER$api$DELIMITER$(path_encode "$file_path")")
+                results+=("$category$DELIMITER$api$DELIMITER$(encode_path "$file_path")")
             fi
         fi
     done
@@ -515,7 +515,7 @@ analyze_binary_file() {
   
             # If no matching category found, add a new result
             if [[ $index -eq -1 ]]; then
-                results+=("$category$DELIMITER$api$DELIMITER$(path_encode "$file_path")")
+                results+=("$category$DELIMITER$api$DELIMITER$(encode_path "$file_path")")
             fi
         fi
     done
@@ -597,7 +597,7 @@ search_privacy_manifest_files() {
             fi
         done
         if [ $skip_file -eq 0 ]; then
-            privacy_manifest_files+=($(path_encode "$file_path"))
+            privacy_manifest_files+=($(encode_path "$file_path"))
         fi
     done < "$tempfile"
 
@@ -608,7 +608,7 @@ get_privacy_manifest_file() {
     # If there are multiple privacy manifest files, return the one with the shortest path
     local privacy_manifest_file=$(printf "%s\n" "$@" | awk '{print length, $0}' | sort -n | head -n1 | cut -d ' ' -f2-)
     
-    echo $(path_decode "$privacy_manifest_file")
+    echo $(decode_path "$privacy_manifest_file")
 }
 
 check_privacy_manifest_file() {
@@ -699,7 +699,7 @@ analyze() {
     else
         for result in "${results[@]}"; do
             result_substrings=($(split_string_by_delimiter "$result"))
-            file_path="$(path_decode "${result_substrings[2]}")"
+            file_path="$(decode_path "${result_substrings[2]}")"
             # When the `MACH_O_TYPE` property is empty, the following scenarios are considered:
             # 1. If `use_frameworks` is specified in the `Podfile`, the library is treated as `mh_dylib`, assuming it is a dynamic library. In this case, the statically linked libraries within it may affect the application's privacy manifest
             # 2. If `use_frameworks` is not specified in the `Podfile`, the library is treated as `staticlib`, assuming it is a static library. In this case, the non-dynamically linked libraries within it may affect the application's privacy manifest

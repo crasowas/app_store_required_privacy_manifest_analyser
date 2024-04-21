@@ -1,5 +1,6 @@
 ## 2024-04-21
 * Add color to shell script output for improved readability.
+* Remove unnecessary `-E` option from sed command.
 
 ## 2024-04-18
 * Add display of total time spent on analysis.
