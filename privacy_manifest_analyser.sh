@@ -740,7 +740,7 @@ analyze_lib_dir() {
         print_text "Analyzing $GREEN_COLOR$dir_name$RESET_COLOR ..."
     fi
     
-    analyze "$path" "$mach_o_type"
+    analyze "$lib_path" "$mach_o_type"
     echo ""
 }
 

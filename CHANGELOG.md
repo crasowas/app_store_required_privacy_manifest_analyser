@@ -1,3 +1,6 @@
+## 2024-04-22
+* Fix analysis result inaccuracies caused by incorrect usage of a path variable.
+
 ## 2024-04-21
 * Add color to shell script output for improved readability.
 * Remove unnecessary `-E` option from sed command.
