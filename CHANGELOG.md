@@ -1,3 +1,6 @@
+## 2024-04-23
+* Add support for scanning `.c`, `.cc`, `.hpp`, and `.cpp` source files.
+
 ## 2024-04-22
 * Fix analysis result inaccuracies caused by incorrect usage of a path variable.
 

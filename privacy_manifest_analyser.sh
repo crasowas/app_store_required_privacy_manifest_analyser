@@ -559,12 +559,15 @@ analyze_api_usage() {
             if [ -d "$path" ]; then
                 results+=($(analyze_api_usage "$path" "${excluded_dirs[@]}"))
             elif [ -f "$path" ]; then
-                # Analyze source code files (*.swift, *.h, *.m, *.mm) and binary files (*.a)
-                if [[ "$path" == *.swift ]] || [[ "$path" == *.h ]] || [[ "$path" == *.m ]] || [[ "$path" == *.mm ]]; then
-                    results+=($(analyze_source_code_file "$path"))
-                elif [[ "$path" == *.a ]]; then
-                    results+=($(analyze_binary_file "$path"))
-                fi
+                # Analyze source files (.swift, .h, .m, .mm, .c, .cc, .hpp, .cpp) and binary files (.a)
+                case "$path" in
+                    *.swift | *.h | *.m | *.mm | *.c | *.cc | *.hpp | *.cpp)
+                        results+=($(analyze_source_code_file "$path"))
+                        ;;
+                    *.a)
+                        results+=($(analyze_binary_file "$path"))
+                        ;;
+                esac
             fi
         done
     fi

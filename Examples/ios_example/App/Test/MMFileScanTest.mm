@@ -10,7 +10,6 @@
 @implementation MMFileScanTest
 
 - (void)test {
-    
     NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     NSLog(@"%@", userDefaults);
 }

@@ -2,9 +2,9 @@
 
 ## Features
 
-* Support the analysis of API usage within directories, including Cocoa projects, Flutter projects, and application bundles (*.app)
-* Enable scanning of source code files (including `.h`, `.m`, `.mm`, and `.swift` files) as well as binary files
-* Support the detection of missing privacy manifest files and API declarations
+* Support the analysis of API usage within directories, including Cocoa projects, Flutter projects, and application bundles (`.app`)
+* Scan all source files (including `.h`, `.m`, `.mm`, `.c`, `.cc`, `.hpp`, `.cpp`, and `.swift` files) as well as binary files
+* Automatically detect missing privacy manifest files and API declarations
 * Support for tagging commonly used SDKs
 * Provide API usage that could affect your app's privacy manifest
 
@@ -156,6 +156,6 @@ sh privacy_manifest_analyser.sh <directory_path> >log.txt
 * [ios_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_example)
 * [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)
 
-# Thanks
+## Acknowledgements
 
 * The scanning of required reason APIs is implemented based on [ios_17_required_reason_api_scanner](https://github.com/Wooder/ios_17_required_reason_api_scanner)
