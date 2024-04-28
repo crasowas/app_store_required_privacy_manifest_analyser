@@ -60,7 +60,6 @@ issue_count=0
 completed_count=0
 common_sdk_count=0
 
-is_use_frameworks=false
 # Define an array variable to store the `MACH_O_TYPE` property of libraries
 mach_o_types=()
 
@@ -70,6 +69,7 @@ app_privacy_manifest_effect_results=()
 readonly PRIVACY_MANIFEST_FILE_NAME="PrivacyInfo.xcprivacy"
 
 readonly MACH_O_TYPE_STATIC_LIB="staticlib"
+readonly MACH_O_TYPE_DY_LIB="mh_dylib"
 
 # Define the delimiter used to splice APIs and their categories
 readonly DELIMITER=":"
@@ -358,11 +358,12 @@ check_use_frameworks() {
     fi
 }
 
-# Function to search for `MACH_O_TYPE` properties from a project.pbxproj file
-search_mach_o_types() {
+# Function to search for `MACH_O_TYPE` properties within a project.pbxproj file in the Pods directory
+# Note: If the library is a framework, it will not be included in the search results
+search_mach_o_types_in_pods() {
     local file_path="$1"
     
-    awk '
+    awk -v use_frameworks="$2" -v static_lib="$MACH_O_TYPE_STATIC_LIB" -v dy_lib="$MACH_O_TYPE_DY_LIB" -v delimiter="$DELIMITER" '
         BEGIN {
             in_configuration_section = 0;
             library_name = "";
@@ -397,7 +398,13 @@ search_mach_o_types() {
         {
             if (library_name != "" && !processed_libs[library_name]) {
                 processed_libs[library_name] = 1;
-                print library_name ":" mach_o_type;
+                # When the `MACH_O_TYPE` property is empty, the following scenarios are considered:
+                # 1. If `use_frameworks` is specified in the `Podfile`, the library is identified as a dynamic library
+                # 2. If `use_frameworks` is not specified in the `Podfile`, the library is identified as a static library
+                if (mach_o_type == "") {
+                    mach_o_type = (use_frameworks == "true") ? dy_lib : static_lib;
+                }
+                print library_name delimiter mach_o_type;
             }
         }
     ' "$file_path"
@@ -693,22 +700,17 @@ analyze() {
     categories=($(get_categories "${results[@]}"))
     check_categories "$(get_privacy_manifest_file "${privacy_manifest_files[@]}")" "${categories[@]}"
     
-    # Save affects the analysis results of the application's privacy manifest
-    if [ -n "$mach_o_type" ]; then
-        # If identified as a static library, all analysis results may affect the application's privacy manifest
-        if [[ "$mach_o_type" == "$MACH_O_TYPE_STATIC_LIB" ]]; then
-            app_privacy_manifest_effect_results+=("${results[@]}")
-        fi
-    else
+    # If identified as a dynamic library, disregard the effect of the analysis results on the application's privacy manifest
+    if ! [[ "$mach_o_type" == "$MACH_O_TYPE_DY_LIB" ]]; then
         for result in "${results[@]}"; do
             result_substrings=($(split_string_by_delimiter "$result"))
             file_path="$(decode_path "${result_substrings[2]}")"
-            # When the `MACH_O_TYPE` property is empty, the following scenarios are considered:
-            # 1. If `use_frameworks` is specified in the `Podfile`, the library is treated as `mh_dylib`, assuming it is a dynamic library. In this case, the statically linked libraries within it may affect the application's privacy manifest
-            # 2. If `use_frameworks` is not specified in the `Podfile`, the library is treated as `staticlib`, assuming it is a static library. In this case, the non-dynamically linked libraries within it may affect the application's privacy manifest
-            if [[ "$is_use_frameworks" == true ]] && is_statically_linked_lib "$file_path"; then
+            
+            # If identified as a static library, any analysis results from non-dynamically linked libraries within it could affect the application's privacy manifest
+            # For libraries of unknown type, only the analysis results of statically linked libraries are included in the list that could affect the application's privacy manifest
+            if [[ "$mach_o_type" == "$MACH_O_TYPE_STATIC_LIB" ]] && ! is_dynamically_linked_lib "$file_path"; then
                 app_privacy_manifest_effect_results+=("$result")
-            elif [[ "$is_use_frameworks" == false ]] && ! is_dynamically_linked_lib "$file_path"; then
+            elif is_statically_linked_lib "$file_path"; then
                 app_privacy_manifest_effect_results+=("$result")
             fi
         done
@@ -725,6 +727,7 @@ analyze_target_dir() {
 # Function to analyze a library directory
 analyze_lib_dir() {
     local lib_path="$1"
+    local mach_o_type="$2"
     local dir_name=$(basename "$lib_path")
     
     # Remove version name for Flutter plugin libraries
@@ -733,7 +736,9 @@ analyze_lib_dir() {
     lib_name="${lib_name%.*}"
     
     # Get the `MACH_O_TYPE` property based on the library name
-    local mach_o_type=$(get_mach_o_type "$lib_name")
+    if [ -z "$mach_o_type" ]; then
+        mach_o_type=$(get_mach_o_type "$lib_name")
+    fi
     
     # Check if the library is a common SDK
     if is_common_sdk "$lib_name"; then
@@ -755,16 +760,15 @@ analyze_pods_dir() {
     
     print_title "Analyzing Pods Directory"
     
+    local use_frameworks=false
     if [ -f "$pod_file" ]; then
         if check_use_frameworks "$pod_file"; then
-            is_use_frameworks=true
-        else
-            is_use_frameworks=false
+            use_frameworks=true
         fi
     fi
     
     if [ -f "$pods_pbxproj_file" ]; then
-        mach_o_types=($(search_mach_o_types "$pods_pbxproj_file"))
+        mach_o_types+=($(search_mach_o_types_in_pods "$pods_pbxproj_file" $use_frameworks))
     fi
     
     for path in "$pods_dir"/*; do
@@ -775,6 +779,7 @@ analyze_pods_dir() {
 }
 
 # Function to analyze the Flutter plugins directory
+# Note: The type identification of Flutter plugin libraries is completed during the analysis of the Pods directory, so execute it after the `analyze_pods_dir` function
 analyze_flutter_plugins_dir() {
     if ! [ -d "$flutter_plugins_dir" ]; then
         return
@@ -800,7 +805,7 @@ analyze_frameworks_dir() {
     
     for path in "$frameworks_dir"/*; do
         if [ -d "$path" ] ; then
-            analyze_lib_dir "$path"
+            analyze_lib_dir "$path" "$MACH_O_TYPE_DY_LIB"
         fi
     done
 }
