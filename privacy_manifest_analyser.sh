@@ -9,15 +9,20 @@
 # Keep comment during source code scanning when the `-c` option is enabled
 keep_comment=false
 
+# Print verbose information when the `-v` option is enabled
+verbose=false
+
 # An array of directories excluded from analysis
 target_excluded_dirs=()
 
 # Parse command-line options
-while getopts ":ce:" opt; do
+while getopts ":ce:v" opt; do
   case $opt in
     c) keep_comment=true
     ;;
     e) target_excluded_dirs+=("$OPTARG")
+    ;;
+    v) verbose=true
     ;;
     \?) echo "Invalid option: -$OPTARG" >&2
         exit 1
@@ -881,6 +886,12 @@ analyze_pods_dir() {
     
     if [ -f "$pods_pbxproj_file" ]; then
         search_dependency_libs_in_pods "$pods_pbxproj_file" $use_frameworks
+    fi
+    
+    if [ "$verbose" == true ]; then
+        echo "The following are all dependencies managed by CocoaPods: ${#dependency_libs[@]}"
+        print_array "${dependency_libs[@]}"
+        echo ""
     fi
     
     for path in "$pods_dir"/*; do

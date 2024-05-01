@@ -2,7 +2,7 @@
 
 ## Features
 
-* Support the analysis of API usage within directories, including Cocoa projects, Flutter projects, and application bundles (`.app`)
+* Support the analysis of API usage within directories, including CocoaPods projects, Flutter projects, and application bundles (`.app`)
 * Scan all source files (including `.h`, `.m`, `.mm`, `.c`, `.cc`, `.hpp`, `.cpp`, and `.swift` files) as well as binary files
 * Automatically detect missing privacy manifest files and API declarations
 * Support for tagging commonly used SDKs
@@ -145,10 +145,16 @@ It is not recommended to enable this option for the accuracy of API scanning.
 sh privacy_manifest_analyser.sh -e <excluded_directory_path> <directory_path>
 ```
 
-### 3. Saving Analysis Logs
+* `-v`: Display verbose information
 
 ```shell
-sh privacy_manifest_analyser.sh <directory_path> >log.txt
+sh privacy_manifest_analyser.sh -v <directory_path>
+```
+
+### 3. Saving Analysis Log
+
+```shell
+sh privacy_manifest_analyser.sh <directory_path> > log.txt
 ```
 
 ### 4. More Examples
