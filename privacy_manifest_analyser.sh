@@ -6,16 +6,16 @@
 # that can be found in the LICENSE file or at
 # https://opensource.org/licenses/MIT.
 
-# Keep comments during source code scanning when the `-c` option is enabled
-keep_comments=false
+# Keep comment during source code scanning when the `-c` option is enabled
+keep_comment=false
 
-# Array of directories excluded from analysis
+# An array of directories excluded from analysis
 target_excluded_dirs=()
 
 # Parse command-line options
 while getopts ":ce:" opt; do
   case $opt in
-    c) keep_comments=true
+    c) keep_comment=true
     ;;
     e) target_excluded_dirs+=("$OPTARG")
     ;;
@@ -43,7 +43,7 @@ pods_pbxproj_file="$pods_dir/Pods.xcodeproj/project.pbxproj"
 pods_excluded_dirs=("$pods_dir/Pods.xcodeproj" "$pods_dir/Target Support Files" "$pods_dir/Local Podspecs" "$pods_dir/Headers")
 # Flutter plugins directory will be separately analyzed if it's a Flutter project
 flutter_plugins_dir="$target_dir/.symlinks/plugins"
-# Frameworks directory will be separately analyzed if the target directory is an application bundle (*.app)
+# Frameworks directory will be separately analyzed if the target directory is an application bundle (.app)
 frameworks_dir="$target_dir/Frameworks"
 
 # Exclude directories to be separately analyzed
@@ -60,22 +60,25 @@ issue_count=0
 completed_count=0
 common_sdk_count=0
 
-# Define an array variable to store the `MACH_O_TYPE` property of libraries
-mach_o_types=()
+# An array of dependency libraries information, including the library name, product name, and Mach-O type
+dependency_libs=()
 
-# Define an array variable to store analysis results that affect the application's privacy manifest
+# An array variable for storing analysis results that affect the application's privacy manifest
 app_privacy_manifest_effect_results=()
 
+# File name of the privacy manifest
 readonly PRIVACY_MANIFEST_FILE_NAME="PrivacyInfo.xcprivacy"
 
-readonly MACH_O_TYPE_STATIC_LIB="staticlib"
-readonly MACH_O_TYPE_DY_LIB="mh_dylib"
-
-# Define the delimiter used to splice APIs and their categories
+# Universal delimiter
 readonly DELIMITER=":"
 
-# Define the space escape symbol to handle the issue of space within path
+# Space escape symbol for handling space in path
 readonly SPACE_ESCAPE="\u0020"
+
+# Mach-O types
+readonly MACH_O_TYPE_STATIC_LIB="staticlib"
+readonly MACH_O_TYPE_DY_LIB="mh_dylib"
+readonly MACH_O_TYPE_UNKNOWN="unknown"
 
 # ANSI color codes
 readonly GREEN_COLOR="\033[0;32m"
@@ -316,16 +319,16 @@ decode_path() {
     echo "$1" | sed "s/$SPACE_ESCAPE/ /g";
 }
 
-# Function to filter comments from a source code file
-filter_comments() {
-    if [ "$keep_comments" == false ]; then
+# Filter out comments from the specified source file
+filter_comment() {
+    if [ "$keep_comment" == false ]; then
         sed -e "/\/\*/,/\*\//d" -e "s/\/\/.*//g" "$1"
     else
         cat "$file_path"
     fi
 }
 
-# Function to check if a file is a statically linked library
+# Check if the specified file is statically linked library
 is_statically_linked_lib() {
     local file_info=$(file "$1")
     
@@ -336,7 +339,7 @@ is_statically_linked_lib() {
     fi
 }
 
-# Function to check if a file is a dynamically linked library
+# Check if the specified file is dynamically linked library
 is_dynamically_linked_lib() {
     local file_info=$(file "$1")
     
@@ -347,7 +350,7 @@ is_dynamically_linked_lib() {
     fi
 }
 
-# Function to check if `use_frameworks!` is specified in the Podfile
+# Check if `use_frameworks!` is specified in the Podfile
 check_use_frameworks() {
     local file_path="$1"
 
@@ -358,65 +361,164 @@ check_use_frameworks() {
     fi
 }
 
-# Function to search for `MACH_O_TYPE` properties within a project.pbxproj file in the Pods directory
-# Note: If the library is a framework, it will not be included in the search results
-search_mach_o_types_in_pods() {
+# Search for the name of dependency libraries within a project.pbxproj file in the Pods directory
+search_dependency_names_in_pods() {
     local file_path="$1"
     
-    awk -v use_frameworks="$2" -v static_lib="$MACH_O_TYPE_STATIC_LIB" -v dy_lib="$MACH_O_TYPE_DY_LIB" -v delimiter="$DELIMITER" '
+    awk '
         BEGIN {
-            in_configuration_section = 0;
-            library_name = "";
-            mach_o_type = "";
+            in_targets = 0
         }
-        # Match the beginning of configuration section
-        /Begin XCBuildConfiguration section/ {
-            in_configuration_section = 1;
-        }
-        # Match the end of configuration section
-        /End XCBuildConfiguration section/ {
-            in_configuration_section = 0;
-        }
-        # Within the configuration section, match the beginning
-        in_configuration_section && /isa = XCBuildConfiguration;/ {
-            library_name = "";
-            mach_o_type = "";
-        }
-        # Within the configuration section, match the library name
-        in_configuration_section && /PRODUCT_MODULE_NAME/ {
-            sub(/^[[:space:]]+/, "");
-            gsub(/;/, "");
-            library_name = $3;
-        }
-        # Within the configuration section, match the `MACH_O_TYPE` property
-        in_configuration_section && /MACH_O_TYPE/ {
-            sub(/^[[:space:]]+/, "");
-            gsub(/;/, "");
-            mach_o_type = $3;
-        }
-        # Output the result
-        {
-            if (library_name != "" && !processed_libs[library_name]) {
-                processed_libs[library_name] = 1;
-                # When the `MACH_O_TYPE` property is empty, the following scenarios are considered:
-                # 1. If `use_frameworks` is specified in the `Podfile`, the library is identified as a dynamic library
-                # 2. If `use_frameworks` is not specified in the `Podfile`, the library is identified as a static library
-                if (mach_o_type == "") {
-                    mach_o_type = (use_frameworks == "true") ? dy_lib : static_lib;
-                }
-                print library_name delimiter mach_o_type;
+        /Begin PBXProject section/,/End PBXProject section/ {
+            if (/targets = \(/) {
+                in_targets = 1
+                next
+            }
+            if (in_targets && /\*.* \*\// && $3 !~ /^Pods-/) {
+                print $3
+                next
+            }
+            if (/;/) {
+                in_targets = 0
             }
         }
     ' "$file_path"
 }
 
+# Search for the product of dependency libraries within a project.pbxproj file in the Pods directory
+search_dependency_products_in_pods() {
+    local file_path="$1"
+
+    awk -v delimiter="$DELIMITER" '
+        BEGIN {
+            in_native_target = 0
+        }
+        /Begin PBXNativeTarget section/,/End PBXNativeTarget section/ {
+            if (/isa = PBXNativeTarget;/) {
+                in_native_target = 1
+                name = product_name = product_type = ""
+                next
+            }
+            if (in_native_target && /name|productName|productType/) {
+                sub(/^[[:space:]]+/, "")
+                gsub(/;/, "")
+                gsub(/"/, "", $3)
+                if ($3 !~ /^Pods-/) {
+                    if (/name/) name = $3
+                    else if (/productName/) product_name = $3
+                    else if (/productType/) product_type = $3
+                }
+                next
+            }
+            if (in_native_target && /};/) {
+                in_native_target = 0
+                if (name != "") print name delimiter product_name delimiter product_type
+            }
+        }
+    ' "$file_path"
+}
+
+# Search for the Mach-O type of dependency libraries within a project.pbxproj file in the Pods directory
+# Note: If the library is a framework, it will not be included in the search results
+search_dependency_mach_o_types_in_pods() {
+    local file_path="$1"
+    
+    awk -v use_frameworks="$2" -v static_lib="$MACH_O_TYPE_STATIC_LIB" -v dy_lib="$MACH_O_TYPE_DY_LIB" -v delimiter="$DELIMITER" '
+        BEGIN {
+            in_configuration = 0
+        }
+        /Begin XCBuildConfiguration section/,/End XCBuildConfiguration section/ {
+            if (/isa = XCBuildConfiguration;/) {
+                in_configuration = 1
+                product_name = mach_o_type = ""
+                next
+            }
+            if (in_configuration && /PRODUCT_NAME|MACH_O_TYPE/) {
+                sub(/^[[:space:]]+/, "")
+                gsub(/;/, "")
+                gsub(/"/, "", $3)
+                if (index($3, "$") == 0) {
+                    if (/PRODUCT_NAME/) product_name = $3
+                    else if (/MACH_O_TYPE/) mach_o_type = $3
+                }
+                next
+            }
+            if (in_configuration && /};/) {
+                in_configuration = 0
+                if (product_name != "" && !processed_products[product_name]) {
+                    processed_products[product_name] = 1
+                    # When the `MACH_O_TYPE` property is empty, the following scenarios are considered:
+                    # 1. If `use_frameworks` is specified in the `Podfile`, the library is identified as a dynamic library
+                    # 2. If `use_frameworks` is not specified in the `Podfile`, the library is identified as a static library
+                    if (mach_o_type == "") mach_o_type = (use_frameworks == "true") ? dy_lib : static_lib
+                    print product_name delimiter mach_o_type
+                }
+            }
+        }
+    ' "$file_path"
+}
+
+# Search for dependency libraries within a project.pbxproj file in the Pods directory
+search_dependency_libs_in_pods() {
+    local file_path="$1"
+    
+    local names=($(search_dependency_names_in_pods "$file_path"))
+    local products=($(search_dependency_products_in_pods "$file_path"))
+    local mach_o_types=($(search_dependency_mach_o_types_in_pods "$file_path" "$2"))
+    
+    for lib_name in "${names[@]}"; do
+        # Find the product name of the library
+        # The default product name is the same as the library name
+        lib_product_name="$lib_name"
+        for product in "${products[@]}"; do
+            product_substrings=($(split_string_by_delimiter "$product"))
+            product_type=${product_substrings[2]}
+            if [ "$lib_name" == "${product_substrings[0]}" ]; then
+                if ! [ "$product_type" == "com.apple.product-type.bundle" ]; then
+                    lib_product_name=${product_substrings[1]}
+                else
+                    lib_product_name=""
+                fi
+                break
+            fi
+        done
+        
+        # Ignore if the product type is bundle
+        if [ -n "$lib_product_name" ]; then
+            # Find the Mach-O type of the library
+            lib_mach_o_type="$MACH_O_TYPE_UNKNOWN"
+            for mach_o_type in "${mach_o_types[@]}"; do
+                mach_o_type_substrings=($(split_string_by_delimiter "$mach_o_type"))
+                if [ "$lib_product_name" == "${mach_o_type_substrings[0]}" ]; then
+                    lib_mach_o_type=${mach_o_type_substrings[1]}
+                    break
+                fi
+            done
+            
+            dependency_libs+=("$lib_name$DELIMITER$lib_product_name$DELIMITER$lib_mach_o_type")
+        fi
+    done
+}
+
+get_lib_name() {
+    local lib_path="$1"
+    local dir_name=$(basename "$lib_path")
+    
+    # Remove version name for Flutter plugin libraries
+    local lib_name="${dir_name%-[0-9]*}"
+    # Remove .app and .framework suffixes
+    lib_name="${lib_name%.*}"
+    
+    echo "$lib_name"
+}
+
 get_mach_o_type() {
     local lib_name="$1"
     
-    for mach_o_type in "${mach_o_types[@]}"; do
-        mach_o_type_substrings=($(split_string_by_delimiter "$mach_o_type"))
-        if [[ "${mach_o_type_substrings[0]}" == "$lib_name" ]]; then
-            echo "${mach_o_type_substrings[1]}"
+    for dependency_lib in "${dependency_libs[@]}"; do
+        dependency_lib_substrings=($(split_string_by_delimiter "$dependency_lib"))
+        if [ "${dependency_lib_substrings[0]}" == "$lib_name" ]; then
+            echo "${dependency_lib_substrings[2]}"
             return
         fi
     done
@@ -450,11 +552,12 @@ is_visited_dir() {
     fi
 }
 
-is_common_sdk() {
+is_dependency_lib() {
     local lib_name="$1"
     
-    for common_sdk in "${COMMON_SDKS[@]}"; do
-        if [[ "$common_sdk" == "$lib_name" ]] ; then
+    for dependency_lib in "${dependency_libs[@]}"; do
+        dependency_lib_substrings=($(split_string_by_delimiter "$dependency_lib"))
+        if [ "${dependency_lib_substrings[0]}" == "$lib_name" ]; then
             return 0
         fi
     done
@@ -462,8 +565,20 @@ is_common_sdk() {
     return 1
 }
 
-# Analyze a source code file for API texts and their categories
-analyze_source_code_file() {
+is_common_sdk() {
+    local lib_name="$1"
+    
+    for common_sdk in "${COMMON_SDKS[@]}"; do
+        if [ "$common_sdk" == "$lib_name" ] ; then
+            return 0
+        fi
+    done
+    
+    return 1
+}
+
+# Analyze the specified source file for API texts and their categories
+analyze_source_file() {
     local file_path="$1"
     local -a results=()
 
@@ -473,13 +588,13 @@ analyze_source_code_file() {
         api=${substrings[1]}
     
         # Check if the API text exists in the source code
-        if filter_comments "$file_path" | grep -qFw "$api"; then
+        if filter_comment "$file_path" | grep -qFw "$api"; then
             index=-1
             for ((i=0; i<${#results[@]}; i++)); do
                 result="${results[i]}"
                 result_substrings=($(split_string_by_delimiter "$result"))
                 # If the category matches an existing result, update it
-                if [[ "${result_substrings[0]}" == "$category" ]]; then
+                if [ "${result_substrings[0]}" == "$category" ]; then
                    index=i
                    results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
                    break
@@ -496,7 +611,7 @@ analyze_source_code_file() {
     echo "${results[@]}"
 }
 
-# Analyze a binary file for API symbols and their categories
+# Analyze the specified binary file for API symbols and their categories
 analyze_binary_file() {
     local file_path="$1"
     local -a results=()
@@ -513,7 +628,7 @@ analyze_binary_file() {
                 result="${results[i]}"
                 result_substrings=($(split_string_by_delimiter "$result"))
                 # If the category matches an existing result, update it
-                if [[ "${result_substrings[0]}" == "$category" ]]; then
+                if [ "${result_substrings[0]}" == "$category" ]; then
                    index=i
                    results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
                    break
@@ -548,7 +663,7 @@ analyze_api_usage() {
     
     local dir_name="$(basename "$dir_path")"
     
-    # If the directory is an application bundle (*.app) or framework (*.framework), analyze its binary file
+    # If the directory is an application bundle (.app) or framework (.framework), analyze its binary file
     if [[ "$dir_name" == *.app ]]; then
         binary_name="${dir_name%.*}"
         binary_file="$dir_path/$binary_name"
@@ -569,7 +684,7 @@ analyze_api_usage() {
                 # Analyze source files (.swift, .h, .m, .mm, .c, .cc, .hpp, .cpp) and binary files (.a)
                 case "$path" in
                     *.swift | *.h | *.m | *.mm | *.c | *.cc | *.hpp | *.cpp)
-                        results+=($(analyze_source_code_file "$path"))
+                        results+=($(analyze_source_file "$path"))
                         ;;
                     *.a)
                         results+=($(analyze_binary_file "$path"))
@@ -582,7 +697,7 @@ analyze_api_usage() {
     echo "${results[@]}"
 }
 
-# Function to search for privacy manifest files within a directory
+# Search for privacy manifest files in a directory
 search_privacy_manifest_files() {
     local dir_path="$1"
     local excluded_dirs=("${@:2}")
@@ -606,7 +721,7 @@ search_privacy_manifest_files() {
                 break
             fi
         done
-        if [ $skip_file -eq 0 ]; then
+        if [[ $skip_file -eq 0 ]]; then
             privacy_manifest_files+=($(encode_path "$file_path"))
         fi
     done < "$tempfile"
@@ -633,7 +748,7 @@ check_privacy_manifest_file() {
     fi
 }
 
-# Function to get categories from analysis results
+# Get unique categories from analysis results
 get_categories() {
     local results=("$@")
     local -a categories=()
@@ -683,7 +798,7 @@ check_categories() {
     fi
 }
 
-# Function to analyze directory for privacy manifest file and API usage
+# Analyze the specified directory for privacy manifest file and API usage
 analyze() {
     local dir_path="$1"
     local mach_o_type="$2"
@@ -701,14 +816,14 @@ analyze() {
     check_categories "$(get_privacy_manifest_file "${privacy_manifest_files[@]}")" "${categories[@]}"
     
     # If identified as a dynamic library, disregard the effect of the analysis results on the application's privacy manifest
-    if ! [[ "$mach_o_type" == "$MACH_O_TYPE_DY_LIB" ]]; then
+    if ! [ "$mach_o_type" == "$MACH_O_TYPE_DY_LIB" ]; then
         for result in "${results[@]}"; do
             result_substrings=($(split_string_by_delimiter "$result"))
             file_path="$(decode_path "${result_substrings[2]}")"
             
             # If identified as a static library, any analysis results from non-dynamically linked libraries within it could affect the application's privacy manifest
             # For libraries of unknown type, only the analysis results of statically linked libraries are included in the list that could affect the application's privacy manifest
-            if [[ "$mach_o_type" == "$MACH_O_TYPE_STATIC_LIB" ]] && ! is_dynamically_linked_lib "$file_path"; then
+            if [ "$mach_o_type" == "$MACH_O_TYPE_STATIC_LIB" ] && ! is_dynamically_linked_lib "$file_path"; then
                 app_privacy_manifest_effect_results+=("$result")
             elif is_statically_linked_lib "$file_path"; then
                 app_privacy_manifest_effect_results+=("$result")
@@ -717,23 +832,18 @@ analyze() {
     fi
 }
 
-# Function to analyze the target directory
+# Analyze the target directory
 analyze_target_dir() {
     print_title "Analyzing Target Directory"
     
     analyze "$target_dir" "$MACH_O_TYPE_STATIC_LIB" "${target_excluded_dirs[@]}"
 }
 
-# Function to analyze a library directory
+# Analyze the specified library directory
 analyze_lib_dir() {
     local lib_path="$1"
-    local mach_o_type="$2"
-    local dir_name=$(basename "$lib_path")
-    
-    # Remove version name for Flutter plugin libraries
-    local lib_name="${dir_name%-[0-9]*}"
-    # Remove .app and .framework suffixes
-    lib_name="${lib_name%.*}"
+    local lib_name="$2"
+    local mach_o_type="$3"
     
     # Get the `MACH_O_TYPE` property based on the library name
     if [ -z "$mach_o_type" ]; then
@@ -743,16 +853,18 @@ analyze_lib_dir() {
     # Check if the library is a common SDK
     if is_common_sdk "$lib_name"; then
         ((common_sdk_count++))
-        print_text "Analyzing $GREEN_COLOR$dir_name$RESET_COLOR 🎯 ..."
+        print_text "Analyzing $GREEN_COLOR$lib_name$RESET_COLOR 🎯 ..."
     else
-        print_text "Analyzing $GREEN_COLOR$dir_name$RESET_COLOR ..."
+        print_text "Analyzing $GREEN_COLOR$lib_name$RESET_COLOR ..."
     fi
+    
+    echo "Mach-O Type: $mach_o_type"
     
     analyze "$lib_path" "$mach_o_type"
     echo ""
 }
 
-# Function to analyze the Pods directory
+# Analyze the Pods directory
 analyze_pods_dir() {
     if ! [ -d "$pods_dir" ]; then
         return
@@ -768,17 +880,23 @@ analyze_pods_dir() {
     fi
     
     if [ -f "$pods_pbxproj_file" ]; then
-        mach_o_types+=($(search_mach_o_types_in_pods "$pods_pbxproj_file" $use_frameworks))
+        search_dependency_libs_in_pods "$pods_pbxproj_file" $use_frameworks
     fi
     
     for path in "$pods_dir"/*; do
         if [ -d "$path" ] && ! is_excluded_dir "$path" "${pods_excluded_dirs[@]}"; then
-            analyze_lib_dir "$path"
+            lib_name="$(get_lib_name "$path")"
+            if is_dependency_lib "$lib_name"; then
+                analyze_lib_dir "$path" "$lib_name"
+            else
+                print_text "Ignore $GREEN_COLOR$lib_name$RESET_COLOR (it's not a dependency)."
+                echo ""
+            fi
         fi
     done
 }
 
-# Function to analyze the Flutter plugins directory
+# Analyze the Flutter plugins directory
 # Note: The type identification of Flutter plugin libraries is completed during the analysis of the Pods directory, so execute it after the `analyze_pods_dir` function
 analyze_flutter_plugins_dir() {
     if ! [ -d "$flutter_plugins_dir" ]; then
@@ -789,13 +907,14 @@ analyze_flutter_plugins_dir() {
     
     for path in "$flutter_plugins_dir"/*; do
         lib_path="$(readlink -f "$path")"
-        if [ -d "$lib_path" ] ; then
-            analyze_lib_dir "$lib_path"
+        lib_name="$(get_lib_name "$path")"
+        if [ -d "$lib_path" ]; then
+            analyze_lib_dir "$lib_path" "$lib_name"
         fi
     done
 }
 
-# Function to analyze the Frameworks directory
+# Analyze the Frameworks directory
 analyze_frameworks_dir() {
     if ! [ -d "$frameworks_dir" ]; then
         return
@@ -804,8 +923,9 @@ analyze_frameworks_dir() {
     print_title "Analyzing Frameworks Directory"
     
     for path in "$frameworks_dir"/*; do
-        if [ -d "$path" ] ; then
-            analyze_lib_dir "$path" "$MACH_O_TYPE_DY_LIB"
+        if [ -d "$path" ]; then
+            lib_name="$(get_lib_name "$path")"
+            analyze_lib_dir "$path" "$lib_name" "$MACH_O_TYPE_DY_LIB"
         fi
     done
 }

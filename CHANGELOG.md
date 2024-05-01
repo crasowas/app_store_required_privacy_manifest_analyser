@@ -1,3 +1,6 @@
+## 2024-05-01
+* Improve the accuracy of CocoaPods project analysis.
+
 ## 2024-04-23
 * Add support for scanning `.c`, `.cc`, `.hpp`, and `.cpp` source files.
 
