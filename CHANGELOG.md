@@ -2,6 +2,7 @@
 * Add support for analyzing dependencies managed by Swift Package Manager.
 * Add ios spm example.
 * Add `-i` command line option.
+* Update example output.
 
 ## 2024-05-01
 * Improve the accuracy of CocoaPods project analysis.

@@ -41,14 +41,14 @@ sh privacy_manifest_analyser.sh <directory_path>
 Example output:
 
 ```text
-==================== Analyzing Target Directory ====================
+==================== Analyzing Runner Project ====================
 
 💡 Found privacy manifest file(s): 1
 [0] ./Runner/PrivacyInfo.xcprivacy
 API usage analysis result(s): 0
 ✅ All required API reasons have been described in the privacy manifest.
 
-==================== Analyzing Pods Directory ====================
+==================== Analyzing CocoaPods Dependencies ====================
 
 Analyzing FBSDKCoreKit 🎯 ...
 💡 Found privacy manifest file(s): 3
@@ -81,7 +81,7 @@ API usage analysis result(s): 0
 
 ...
 
-==================== Analyzing Flutter Plugins Directory ====================
+==================== Analyzing Flutter Plugin Dependencies ====================
 
 Analyzing device_info_plus-9.1.0 🎯 ...
 ⚠️  Missing privacy manifest file!
@@ -98,7 +98,7 @@ API usage analysis result(s): 3
 
 ...
 
-==================== Analysis completed! 💡: 6 ⚠️ : 30 🛠️ : 10 ✅: 6 🎯: 10 ====================
+==================== Analysis completed! ⏰: 229s 💡: 6 ⚠️ : 30 🛠️ : 10 ✅: 6 🎯: 10 ====================
 
 ⚠️ 🛠️  https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
 🎯 https://developer.apple.com/support/third-party-SDK-requirements
