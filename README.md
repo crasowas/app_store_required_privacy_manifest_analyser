@@ -2,7 +2,7 @@
 
 ## Features
 
-* Support the analysis of API usage within directories, including CocoaPods projects, Flutter projects, and application bundles (`.app`)
+* Support the analysis of API usage within directories, including CocoaPods projects, Flutter projects, SPM projects, and application bundles (`.app`)
 * Scan all source files (including `.h`, `.m`, `.mm`, `.c`, `.cc`, `.hpp`, `.cpp`, and `.swift` files) as well as binary files
 * Automatically detect missing privacy manifest files and API declarations
 * Support for tagging commonly used SDKs
