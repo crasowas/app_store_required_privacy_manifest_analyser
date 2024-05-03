@@ -1,6 +1,6 @@
 # ios_example
 
-A iOS project example used to test whether the privacy manifest analyzer is working.
+An iOS project example used to test whether the privacy manifest analyzer is working, with dependencies managed by CocoaPods.
 
 ## Getting Started
 

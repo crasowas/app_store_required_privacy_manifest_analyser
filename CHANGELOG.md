@@ -1,5 +1,6 @@
 ## 2024-05-03
 * Add support for analyzing dependencies managed by Swift Package Manager.
+* Add ios spm example.
 
 ## 2024-05-01
 * Improve the accuracy of CocoaPods project analysis.
