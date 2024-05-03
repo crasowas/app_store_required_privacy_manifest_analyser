@@ -2,7 +2,7 @@
 
 ## Features
 
-* Support the analysis of API usage within directories, including CocoaPods projects, Flutter projects, and application bundles (`.app`)
+* Support the analysis of API usage within directories, including CocoaPods projects, Flutter projects, SPM projects, and application bundles (`.app`)
 * Scan all source files (including `.h`, `.m`, `.mm`, `.c`, `.cc`, `.hpp`, `.cpp`, and `.swift` files) as well as binary files
 * Automatically detect missing privacy manifest files and API declarations
 * Support for tagging commonly used SDKs
@@ -41,14 +41,14 @@ sh privacy_manifest_analyser.sh <directory_path>
 Example output:
 
 ```text
-==================== Analyzing Target Directory ====================
+==================== Analyzing Runner Project ====================
 
 💡 Found privacy manifest file(s): 1
 [0] ./Runner/PrivacyInfo.xcprivacy
 API usage analysis result(s): 0
 ✅ All required API reasons have been described in the privacy manifest.
 
-==================== Analyzing Pods Directory ====================
+==================== Analyzing CocoaPods Dependencies ====================
 
 Analyzing FBSDKCoreKit 🎯 ...
 💡 Found privacy manifest file(s): 3
@@ -81,7 +81,7 @@ API usage analysis result(s): 0
 
 ...
 
-==================== Analyzing Flutter Plugins Directory ====================
+==================== Analyzing Flutter Plugin Dependencies ====================
 
 Analyzing device_info_plus-9.1.0 🎯 ...
 ⚠️  Missing privacy manifest file!
@@ -98,7 +98,7 @@ API usage analysis result(s): 3
 
 ...
 
-==================== Analysis completed! 💡: 6 ⚠️ : 30 🛠️ : 10 ✅: 6 🎯: 10 ====================
+==================== Analysis completed! ⏰: 229s 💡: 6 ⚠️ : 30 🛠️ : 10 ✅: 6 🎯: 10 ====================
 
 ⚠️ 🛠️  https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
 🎯 https://developer.apple.com/support/third-party-SDK-requirements
@@ -131,7 +131,7 @@ To address this confusion, the analyzer will list API usage that may affect your
 
 ### 2. Command Line Options
 
-* `-c`: Specify not to filter comments when scanning source code
+* `-c`: Not to filter comments when scanning source code
 
 ```shell
 sh privacy_manifest_analyser.sh -c <directory_path>
@@ -143,6 +143,12 @@ It is not recommended to enable this option for the accuracy of API scanning.
 
 ```shell
 sh privacy_manifest_analyser.sh -e <excluded_directory_path> <directory_path>
+```
+
+* `-i`: Ignore dependencies during analysis
+
+```shell
+sh privacy_manifest_analyser.sh -i <directory_path>
 ```
 
 * `-v`: Display verbose information
@@ -160,6 +166,7 @@ sh privacy_manifest_analyser.sh <directory_path> > log.txt
 ### 4. More Examples
 
 * [ios_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_example)
+* [ios_spm_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_spm_example)
 * [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)
 
 ## Acknowledgements

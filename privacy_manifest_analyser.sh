@@ -9,6 +9,9 @@
 # Keep comment during source code scanning when the `-c` option is enabled
 keep_comment=false
 
+# Analysis ignores dependencies when the `-i` option is enabled
+ignore_dependencies=false
+
 # Print verbose information when the `-v` option is enabled
 verbose=false
 
@@ -16,11 +19,13 @@ verbose=false
 target_excluded_dirs=()
 
 # Parse command-line options
-while getopts ":ce:v" opt; do
+while getopts ":ce:iv" opt; do
   case $opt in
     c) keep_comment=true
     ;;
     e) target_excluded_dirs+=("$OPTARG")
+    ;;
+    i) ignore_dependencies=true
     ;;
     v) verbose=true
     ;;
@@ -65,8 +70,13 @@ issue_count=0
 completed_count=0
 common_sdk_count=0
 
-# An array of dependency libraries information, including the library name, product name, and Mach-O type
-dependency_libs=()
+# Project Information
+project_name=""
+project_xcodeproj_file=""
+
+# An array of dependencies information, including the name, product name, and Mach-O type
+# For dependencies managed by Swift Package Manager, the paths to these dependencies are also included
+dependencies=()
 
 # An array variable for storing analysis results that affect the application's privacy manifest
 app_privacy_manifest_effect_results=()
@@ -366,8 +376,8 @@ check_use_frameworks() {
     fi
 }
 
-# Search for the name of dependency libraries within a project.pbxproj file in the Pods directory
-search_dependency_names_in_pods() {
+# Search for the names of dependencies managed by CocoaPods
+search_names_in_pods() {
     local file_path="$1"
     
     awk '
@@ -390,8 +400,8 @@ search_dependency_names_in_pods() {
     ' "$file_path"
 }
 
-# Search for the product of dependency libraries within a project.pbxproj file in the Pods directory
-search_dependency_products_in_pods() {
+# Search for the products of dependencies managed by CocoaPods
+search_products_in_pods() {
     local file_path="$1"
 
     awk -v delimiter="$DELIMITER" '
@@ -423,9 +433,9 @@ search_dependency_products_in_pods() {
     ' "$file_path"
 }
 
-# Search for the Mach-O type of dependency libraries within a project.pbxproj file in the Pods directory
-# Note: If the library is a framework, it will not be included in the search results
-search_dependency_mach_o_types_in_pods() {
+# Search for the Mach-O types of dependencies managed by CocoaPods
+# Note: If the dependency is a framework, it will not be included in the search results
+search_mach_o_types_in_pods() {
     local file_path="$1"
     
     awk -v use_frameworks="$2" -v static_lib="$MACH_O_TYPE_STATIC_LIB" -v dy_lib="$MACH_O_TYPE_DY_LIB" -v delimiter="$DELIMITER" '
@@ -453,8 +463,8 @@ search_dependency_mach_o_types_in_pods() {
                 if (product_name != "" && !processed_products[product_name]) {
                     processed_products[product_name] = 1
                     # When the `MACH_O_TYPE` property is empty, the following scenarios are considered:
-                    # 1. If `use_frameworks` is specified in the `Podfile`, the library is identified as a dynamic library
-                    # 2. If `use_frameworks` is not specified in the `Podfile`, the library is identified as a static library
+                    # 1. If `use_frameworks` is specified in the `Podfile`, the dependency is identified as a dynamic library
+                    # 2. If `use_frameworks` is not specified in the `Podfile`, the dependency is identified as a static library
                     if (mach_o_type == "") mach_o_type = (use_frameworks == "true") ? dy_lib : static_lib
                     print product_name delimiter mach_o_type
                 }
@@ -463,67 +473,239 @@ search_dependency_mach_o_types_in_pods() {
     ' "$file_path"
 }
 
-# Search for dependency libraries within a project.pbxproj file in the Pods directory
-search_dependency_libs_in_pods() {
+# Search for dependencies managed by CocoaPods
+search_dependencies_in_pods() {
     local file_path="$1"
     
-    local names=($(search_dependency_names_in_pods "$file_path"))
-    local products=($(search_dependency_products_in_pods "$file_path"))
-    local mach_o_types=($(search_dependency_mach_o_types_in_pods "$file_path" "$2"))
+    local names=($(search_names_in_pods "$file_path"))
+    local products=($(search_products_in_pods "$file_path"))
+    local mach_o_types=($(search_mach_o_types_in_pods "$file_path" "$2"))
     
-    for lib_name in "${names[@]}"; do
-        # Find the product name of the library
-        # The default product name is the same as the library name
-        lib_product_name="$lib_name"
+    for dep_name in "${names[@]}"; do
+        # Find the product name of the dependency
+        # The default product name is the same as the dependency name
+        dep_product_name="$dep_name"
         for product in "${products[@]}"; do
             product_substrings=($(split_string_by_delimiter "$product"))
             product_type=${product_substrings[2]}
-            if [ "$lib_name" == "${product_substrings[0]}" ]; then
+            if [ "$dep_name" == "${product_substrings[0]}" ]; then
                 if ! [ "$product_type" == "com.apple.product-type.bundle" ]; then
-                    lib_product_name=${product_substrings[1]}
+                    dep_product_name=${product_substrings[1]}
                 else
-                    lib_product_name=""
+                    dep_product_name=""
                 fi
                 break
             fi
         done
         
         # Ignore if the product type is bundle
-        if [ -n "$lib_product_name" ]; then
-            # Find the Mach-O type of the library
-            lib_mach_o_type="$MACH_O_TYPE_UNKNOWN"
+        if [ -n "$dep_product_name" ]; then
+            # Find the Mach-O type of the dependency
+            dep_mach_o_type="$MACH_O_TYPE_UNKNOWN"
             for mach_o_type in "${mach_o_types[@]}"; do
                 mach_o_type_substrings=($(split_string_by_delimiter "$mach_o_type"))
-                if [ "$lib_product_name" == "${mach_o_type_substrings[0]}" ]; then
-                    lib_mach_o_type=${mach_o_type_substrings[1]}
+                if [ "$dep_product_name" == "${mach_o_type_substrings[0]}" ]; then
+                    dep_mach_o_type=${mach_o_type_substrings[1]}
                     break
                 fi
             done
             
-            dependency_libs+=("$lib_name$DELIMITER$lib_product_name$DELIMITER$lib_mach_o_type")
+            dependencies+=("$dep_name$DELIMITER$dep_product_name$DELIMITER$dep_mach_o_type")
         fi
     done
 }
 
-get_lib_name() {
-    local lib_path="$1"
-    local dir_name=$(basename "$lib_path")
+# Get the SourcePackages directory, which is used to store Swift Package Manager dependencies
+get_source_packages_dir() {
+    local derived_data_dir="$HOME/Library/Developer/Xcode/DerivedData"
     
-    # Remove version name for Flutter plugin libraries
-    local lib_name="${dir_name%-[0-9]*}"
+    if ! [ -d "$derived_data_dir" ] || [ -z "$project_name" ]; then
+        echo ""
+        return
+    fi
+    
+    # Find the DerivedData directory of the project. If there are multiple, by default return the latest one
+    # Perhaps it would be more accurate to let the user choose?
+    local project_derived_data_dir=$(find "$derived_data_dir" -maxdepth 1 -type d -name "$project_name-*" -exec stat -f "%m %N" {} + | sort -rn | head -n1 | cut -d ' ' -f2-)
+    
+    echo "$project_derived_data_dir/SourcePackages"
+}
+
+# Get the Embed Frameworks from the specified `project.pbxproj` file
+get_embed_frameworks() {
+    local file_path="$1"
+    
+    awk '
+        BEGIN {
+            in_files = 0
+        }
+        /Begin PBXCopyFilesBuildPhase section/,/End PBXCopyFilesBuildPhase section/ {
+            if (/files = \(/) {
+                in_files = 1
+                next
+            }
+            if (in_files && /\*.* \*\//) {
+                print $3
+                next
+            }
+            if (in_files && /;/) {
+                in_files = 0
+            }
+        }
+    ' "$file_path"
+}
+
+# Search for the packages of dependencies managed by Swift Package Manager
+search_packages_in_spm() {
+    local file_path="$1"
+    
+    awk -v delimiter="$DELIMITER" '
+        BEGIN {
+            in_dependency = 0
+        }
+        /Begin XCSwiftPackageProductDependency section/,/End XCSwiftPackageProductDependency section/ {
+            if (/isa = XCSwiftPackageProductDependency;/) {
+                in_dependency = 1
+                package = product_name = ""
+                next
+            }
+            if (in_dependency && /package|productName/) {
+                sub(/^[[:space:]]+/, "")
+                gsub(/;/, "")
+                if (/package/) {
+                    gsub(/"/, "", $6)
+                    package = $6
+                } else if (/productName/) {
+                    gsub(/"/, "", $3)
+                    product_name = $3
+                }
+                next
+            }
+            if (in_dependency && /};/) {
+                in_dependency = 0
+                print package delimiter product_name
+            }
+        }
+    ' "$file_path"
+}
+
+# Search for the artifacts of dependencies managed by Swift Package Manager
+search_artifacts_in_spm() {
+    local file_path="$1"
+    
+    awk -v delimiter="$DELIMITER" '
+        BEGIN {
+            in_artifacts = 0
+            identity = targetName = path = ""
+        }
+        /"artifacts"/ {
+            in_artifacts = 1
+            next
+        }
+        in_artifacts && /"identity"/ {
+            sub(/^[[:space:]]+/, "")
+            gsub(/,/, "")
+            gsub(/"/, "", $3)
+            identity = $3
+            next
+        }
+        in_artifacts && /"path"/ {
+            sub(/^[[:space:]]+/, "")
+            gsub(/,/, "")
+            gsub(/"/, "", $3)
+            path = $3
+            next
+        }
+        in_artifacts && /"targetName"/ {
+            sub(/^[[:space:]]+/, "")
+            gsub(/,/, "")
+            gsub(/"/, "", $3)
+            targetName = $3
+            print identity delimiter targetName delimiter path
+            next
+        }
+        in_artifacts && /],/ {
+            in_artifacts = 0
+        }
+    ' "$file_path"
+}
+
+# Search for dependencies managed by Swift Package Manager
+search_dependencies_in_spm() {
+    local file_path="$1"
+    local source_packages_dir="$2"
+    local checkouts_dir="$3"
+    local workspace_state_file="$source_packages_dir/workspace-state.json"
+    
+    if ! [ -f "$workspace_state_file" ]; then
+        return
+    fi
+    
+    local packages=($(search_packages_in_spm "$file_path"))
+    local embed_frameworks=($(get_embed_frameworks "$file_path"))
+    local artifacts=($(search_artifacts_in_spm "$workspace_state_file"))
+    
+    for package in "${packages[@]}"; do
+        package_substrings=($(split_string_by_delimiter "$package"))
+        dep_name=${package_substrings[0]}
+        dep_product_name=${package_substrings[1]}
+        # By default, dependencies managed by Swift Package Manager are built as static libraries
+        dep_mach_o_type="$MACH_O_TYPE_STATIC_LIB"
+        dep_path=""
+    
+        # Check if the dependency is a dynamic library
+        for embed_framework in "${embed_frameworks[@]}"; do
+            if [ "$dep_product_name" == "$embed_framework" ]; then
+                dep_mach_o_type="$MACH_O_TYPE_DY_LIB"
+                break
+            fi
+        done
+        
+        # Check if the dependency is an unknown type of library
+        for artifact in "${artifacts[@]}"; do
+            artifact_substrings=($(split_string_by_delimiter "$artifact"))
+            
+            # Prioritize matching the product name for greater accuracy in analysis
+            if [ "$dep_product_name" == "${artifact_substrings[1]}" ]; then
+                dep_mach_o_type="$MACH_O_TYPE_UNKNOWN"
+                dep_path="${artifact_substrings[2]}"
+                break
+            fi
+            
+            if [ "$dep_name" == "${artifact_substrings[0]}" ]; then
+                dep_mach_o_type="$MACH_O_TYPE_UNKNOWN"
+                dep_path=$(echo ${artifact_substrings[2]} | sed "s/\(.*\/$dep_name\).*/\1/")
+                break
+            fi
+        done
+        
+        if [ -z "$dep_path" ]; then
+            dep_path="$checkouts_dir/$dep_name"
+        fi
+        
+        dependencies+=("$dep_name$DELIMITER$dep_product_name$DELIMITER$dep_mach_o_type$DELIMITER$dep_path")
+    done
+}
+
+get_dependency_name() {
+    local dep_path="$1"
+    local dir_name=$(basename "$dep_path")
+    
+    # Remove version name for Flutter plugin dependencies
+    local dep_name="${dir_name%-[0-9]*}"
     # Remove .app and .framework suffixes
-    lib_name="${lib_name%.*}"
+    dep_name="${dep_name%.*}"
     
-    echo "$lib_name"
+    echo "$dep_name"
 }
 
 get_mach_o_type() {
-    local lib_name="$1"
+    local dep_name="$1"
     
-    for dependency_lib in "${dependency_libs[@]}"; do
-        dependency_lib_substrings=($(split_string_by_delimiter "$dependency_lib"))
-        if [ "${dependency_lib_substrings[0]}" == "$lib_name" ]; then
-            echo "${dependency_lib_substrings[2]}"
+    for dependency in "${dependencies[@]}"; do
+        dependency_substrings=($(split_string_by_delimiter "$dependency"))
+        if [ "$dep_name" == "${dependency_substrings[0]}" ]; then
+            echo "${dependency_substrings[2]}"
             return
         fi
     done
@@ -557,12 +739,12 @@ is_visited_dir() {
     fi
 }
 
-is_dependency_lib() {
-    local lib_name="$1"
+is_dependency() {
+    local dep_name="$1"
     
-    for dependency_lib in "${dependency_libs[@]}"; do
-        dependency_lib_substrings=($(split_string_by_delimiter "$dependency_lib"))
-        if [ "${dependency_lib_substrings[0]}" == "$lib_name" ]; then
+    for dependency in "${dependencies[@]}"; do
+        dependency_substrings=($(split_string_by_delimiter "$dependency"))
+        if [ "$dep_name" == "${dependency_substrings[0]}" ]; then
             return 0
         fi
     done
@@ -571,10 +753,10 @@ is_dependency_lib() {
 }
 
 is_common_sdk() {
-    local lib_name="$1"
+    local dep_name="$1"
     
     for common_sdk in "${COMMON_SDKS[@]}"; do
-        if [ "$common_sdk" == "$lib_name" ] ; then
+        if [ "$dep_name" == "$common_sdk" ] ; then
             return 0
         fi
     done
@@ -599,7 +781,7 @@ analyze_source_file() {
                 result="${results[i]}"
                 result_substrings=($(split_string_by_delimiter "$result"))
                 # If the category matches an existing result, update it
-                if [ "${result_substrings[0]}" == "$category" ]; then
+                if [ "$category" == "${result_substrings[0]}" ]; then
                    index=i
                    results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
                    break
@@ -633,7 +815,7 @@ analyze_binary_file() {
                 result="${results[i]}"
                 result_substrings=($(split_string_by_delimiter "$result"))
                 # If the category matches an existing result, update it
-                if [ "${result_substrings[0]}" == "$category" ]; then
+                if [ "$category" == "${result_substrings[0]}" ]; then
                    index=i
                    results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
                    break
@@ -839,43 +1021,55 @@ analyze() {
 
 # Analyze the target directory
 analyze_target_dir() {
-    print_title "Analyzing Target Directory"
+    # Check if it's a project
+    project_xcodeproj_file="$(find "$target_dir" -maxdepth 1 -name "*.xcodeproj")"
+    if [ -n "$project_xcodeproj_file" ]; then
+        project_name="$(basename "$project_xcodeproj_file" .xcodeproj)"
+        print_title "Analyzing $project_name Project"
+    else
+        # Check if it's an application bundle
+        if [[ "$target_dir" == *.app ]]; then
+            print_title "Analyzing $(basename "$target_dir" .app) App"
+        else
+            print_title "Analyzing Target Directory"
+        fi
+    fi
     
     analyze "$target_dir" "$MACH_O_TYPE_STATIC_LIB" "${target_excluded_dirs[@]}"
 }
 
-# Analyze the specified library directory
-analyze_lib_dir() {
-    local lib_path="$1"
-    local lib_name="$2"
+# Analyze the specified dependency
+analyze_dependency() {
+    local dep_path="$1"
+    local dep_name="$2"
     local mach_o_type="$3"
     
-    # Get the `MACH_O_TYPE` property based on the library name
+    # Get the Mach-O type based on the dependency name
     if [ -z "$mach_o_type" ]; then
-        mach_o_type=$(get_mach_o_type "$lib_name")
+        mach_o_type=$(get_mach_o_type "$dep_name")
     fi
     
-    # Check if the library is a common SDK
-    if is_common_sdk "$lib_name"; then
+    # Check if the dependency is a common SDK
+    if is_common_sdk "$dep_name"; then
         ((common_sdk_count++))
-        print_text "Analyzing $GREEN_COLOR$lib_name$RESET_COLOR 🎯 ..."
+        print_text "Analyzing $GREEN_COLOR$dep_name$RESET_COLOR 🎯 ..."
     else
-        print_text "Analyzing $GREEN_COLOR$lib_name$RESET_COLOR ..."
+        print_text "Analyzing $GREEN_COLOR$dep_name$RESET_COLOR ..."
     fi
     
     echo "Mach-O Type: $mach_o_type"
     
-    analyze "$lib_path" "$mach_o_type"
+    analyze "$dep_path" "$mach_o_type"
     echo ""
 }
 
-# Analyze the Pods directory
-analyze_pods_dir() {
+# Analyze the CocoaPods dependencies
+analyze_pods_dependencies() {
     if ! [ -d "$pods_dir" ]; then
         return
     fi
     
-    print_title "Analyzing Pods Directory"
+    print_title "Analyzing CocoaPods Dependencies"
     
     local use_frameworks=false
     if [ -f "$pod_file" ]; then
@@ -885,58 +1079,115 @@ analyze_pods_dir() {
     fi
     
     if [ -f "$pods_pbxproj_file" ]; then
-        search_dependency_libs_in_pods "$pods_pbxproj_file" $use_frameworks
+        dependencies=()
+        search_dependencies_in_pods "$pods_pbxproj_file" $use_frameworks
     fi
     
     if [ "$verbose" == true ]; then
-        echo "The following are all dependencies managed by CocoaPods: ${#dependency_libs[@]}"
-        print_array "${dependency_libs[@]}"
+        echo "The following are all dependencies managed by CocoaPods: ${#dependencies[@]}"
+        print_array "${dependencies[@]}"
         echo ""
     fi
     
     for path in "$pods_dir"/*; do
         if [ -d "$path" ] && ! is_excluded_dir "$path" "${pods_excluded_dirs[@]}"; then
-            lib_name="$(get_lib_name "$path")"
-            if is_dependency_lib "$lib_name"; then
-                analyze_lib_dir "$path" "$lib_name"
+            dep_name="$(get_dependency_name "$path")"
+            if [ "$ignore_dependencies" == true ] || is_dependency "$dep_name"; then
+                analyze_dependency "$path" "$dep_name"
             else
-                print_text "Ignore $GREEN_COLOR$lib_name$RESET_COLOR (it's not a dependency)."
+                print_text "Ignore $GREEN_COLOR$dep_name$RESET_COLOR (it's not a dependency)."
                 echo ""
             fi
         fi
     done
 }
 
-# Analyze the Flutter plugins directory
-# Note: The type identification of Flutter plugin libraries is completed during the analysis of the Pods directory, so execute it after the `analyze_pods_dir` function
-analyze_flutter_plugins_dir() {
+# Analyze the Flutter plugin dependencies
+# Note: The type identification of Flutter plugin dependencies is completed during the analysis of the CocoaPods dependencies, so execute it after the `analyze_pods_dependencies` function
+analyze_flutter_plugin_dependencies() {
     if ! [ -d "$flutter_plugins_dir" ]; then
         return
     fi
     
-    print_title "Analyzing Flutter Plugins Directory"
+    print_title "Analyzing Flutter Plugin Dependencies"
     
     for path in "$flutter_plugins_dir"/*; do
-        lib_path="$(readlink -f "$path")"
-        lib_name="$(get_lib_name "$path")"
-        if [ -d "$lib_path" ]; then
-            analyze_lib_dir "$lib_path" "$lib_name"
+        dep_path="$(readlink -f "$path")"
+        dep_name="$(get_dependency_name "$path")"
+        if [ -d "$dep_path" ]; then
+            analyze_dependency "$dep_path" "$dep_name"
         fi
     done
 }
 
-# Analyze the Frameworks directory
-analyze_frameworks_dir() {
+# Analyze the Swift Package Manager dependencies
+analyze_spm_dependencies() {
+    # Check if the project is using Swift Package Manager
+    local spm_package_resolved_file="$project_xcodeproj_file/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+    if ! [ -f "$spm_package_resolved_file" ]; then
+        return
+    fi
+    
+    print_title "Analyzing Swift Package Manager Dependencies"
+    
+    local project_pbxproj_file="$project_xcodeproj_file/project.pbxproj"
+    local source_packages_dir="$(get_source_packages_dir)"
+    local checkouts_dir="$source_packages_dir/checkouts"
+    local artifacts_dir="$source_packages_dir/artifacts"
+    
+    if [ -f "$project_pbxproj_file" ] && [ -d "$source_packages_dir" ] && [ -d "$checkouts_dir" ]; then
+        dependencies=()
+        search_dependencies_in_spm "$project_pbxproj_file" "$source_packages_dir" "$checkouts_dir"
+    fi
+    
+    if [ "$verbose" == true ]; then
+        echo "The location of Swift Package Manager dependencies: $source_packages_dir"
+        echo "The following are all dependencies managed by Swift Package Manager: ${#dependencies[@]}"
+        print_array "${dependencies[@]}"
+        echo ""
+    fi
+    
+    if [ "$ignore_dependencies" == true ]; then
+        if [ -d "$checkouts_dir" ]; then
+            for path in "$checkouts_dir"/*; do
+                if [ -d "$path" ]; then
+                    dep_name="$(get_dependency_name "$path")"
+                    analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_UNKNOWN"
+                fi
+            done
+        fi
+
+        if [ -d "$artifacts_dir" ]; then
+            for path in "$artifacts_dir"/*; do
+                if [ -d "$path" ] && [ $(basename "$path") != "extract" ]; then
+                    dep_name="$(get_dependency_name "$path")"
+                    analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_UNKNOWN"
+                fi
+            done
+        fi
+    else
+        for dependency in "${dependencies[@]}"; do
+            dependency_substrings=($(split_string_by_delimiter "$dependency"))
+            name="${dependency_substrings[1]}"
+            mach_o_type="${dependency_substrings[2]}"
+            path="${dependency_substrings[3]}"
+            analyze_dependency "$path" "$name" "$mach_o_type"
+        done
+    fi
+}
+
+# Analyze the Frameworks dependencies
+analyze_frameworks_dependencies() {
     if ! [ -d "$frameworks_dir" ]; then
         return
     fi
     
-    print_title "Analyzing Frameworks Directory"
+    print_title "Analyzing Frameworks Dependencies"
     
     for path in "$frameworks_dir"/*; do
         if [ -d "$path" ]; then
-            lib_name="$(get_lib_name "$path")"
-            analyze_lib_dir "$path" "$lib_name" "$MACH_O_TYPE_DY_LIB"
+            dep_name="$(get_dependency_name "$path")"
+            analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_DY_LIB"
         fi
     done
 }
@@ -944,9 +1195,10 @@ analyze_frameworks_dir() {
 start_time=$(date +%s)
 
 analyze_target_dir
-analyze_pods_dir
-analyze_flutter_plugins_dir
-analyze_frameworks_dir
+analyze_pods_dependencies
+analyze_flutter_plugin_dependencies
+analyze_spm_dependencies
+analyze_frameworks_dependencies
 
 end_time=$(date +%s)
 
