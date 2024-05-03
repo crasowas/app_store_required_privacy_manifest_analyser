@@ -131,7 +131,7 @@ To address this confusion, the analyzer will list API usage that may affect your
 
 ### 2. Command Line Options
 
-* `-c`: Specify not to filter comments when scanning source code
+* `-c`: Not to filter comments when scanning source code
 
 ```shell
 sh privacy_manifest_analyser.sh -c <directory_path>
@@ -143,6 +143,12 @@ It is not recommended to enable this option for the accuracy of API scanning.
 
 ```shell
 sh privacy_manifest_analyser.sh -e <excluded_directory_path> <directory_path>
+```
+
+* `-i`: Ignore dependencies during analysis
+
+```shell
+sh privacy_manifest_analyser.sh -i <directory_path>
 ```
 
 * `-v`: Display verbose information

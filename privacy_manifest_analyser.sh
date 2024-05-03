@@ -9,6 +9,9 @@
 # Keep comment during source code scanning when the `-c` option is enabled
 keep_comment=false
 
+# Analysis ignores dependencies when the `-i` option is enabled
+ignore_dependencies=false
+
 # Print verbose information when the `-v` option is enabled
 verbose=false
 
@@ -16,11 +19,13 @@ verbose=false
 target_excluded_dirs=()
 
 # Parse command-line options
-while getopts ":ce:v" opt; do
+while getopts ":ce:iv" opt; do
   case $opt in
     c) keep_comment=true
     ;;
     e) target_excluded_dirs+=("$OPTARG")
+    ;;
+    i) ignore_dependencies=true
     ;;
     v) verbose=true
     ;;
@@ -629,10 +634,10 @@ search_artifacts_in_spm() {
 search_dependencies_in_spm() {
     local file_path="$1"
     local source_packages_dir="$2"
+    local checkouts_dir="$3"
     local workspace_state_file="$source_packages_dir/workspace-state.json"
-    local checkouts_dir="$source_packages_dir/checkouts"
     
-    if ! [ -f "$workspace_state_file" ] || ! [ -d "$checkouts_dir" ]; then
+    if ! [ -f "$workspace_state_file" ]; then
         return
     fi
     
@@ -1087,7 +1092,7 @@ analyze_pods_dependencies() {
     for path in "$pods_dir"/*; do
         if [ -d "$path" ] && ! is_excluded_dir "$path" "${pods_excluded_dirs[@]}"; then
             dep_name="$(get_dependency_name "$path")"
-            if is_dependency "$dep_name"; then
+            if [ "$ignore_dependencies" == true ] || is_dependency "$dep_name"; then
                 analyze_dependency "$path" "$dep_name"
             else
                 print_text "Ignore $GREEN_COLOR$dep_name$RESET_COLOR (it's not a dependency)."
@@ -1127,10 +1132,12 @@ analyze_spm_dependencies() {
     
     local project_pbxproj_file="$project_xcodeproj_file/project.pbxproj"
     local source_packages_dir="$(get_source_packages_dir)"
+    local checkouts_dir="$source_packages_dir/checkouts"
+    local artifacts_dir="$source_packages_dir/artifacts"
     
-    if [ -f "$project_pbxproj_file" ] && [ -d "$source_packages_dir" ]; then
+    if [ -f "$project_pbxproj_file" ] && [ -d "$source_packages_dir" ] && [ -d "$checkouts_dir" ]; then
         dependencies=()
-        search_dependencies_in_spm "$project_pbxproj_file" "$source_packages_dir"
+        search_dependencies_in_spm "$project_pbxproj_file" "$source_packages_dir" "$checkouts_dir"
     fi
     
     if [ "$verbose" == true ]; then
@@ -1140,14 +1147,33 @@ analyze_spm_dependencies() {
         echo ""
     fi
     
-    for dependency in "${dependencies[@]}"; do
-        dependency_substrings=($(split_string_by_delimiter "$dependency"))
-        name="${dependency_substrings[1]}"
-        mach_o_type="${dependency_substrings[2]}"
-        path="${dependency_substrings[3]}"
-        
-        analyze_dependency "$path" "$name" "$mach_o_type"
-    done
+    if [ "$ignore_dependencies" == true ]; then
+        if [ -d "$checkouts_dir" ]; then
+            for path in "$checkouts_dir"/*; do
+                if [ -d "$path" ]; then
+                    dep_name="$(get_dependency_name "$path")"
+                    analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_UNKNOWN"
+                fi
+            done
+        fi
+
+        if [ -d "$artifacts_dir" ]; then
+            for path in "$artifacts_dir"/*; do
+                if [ -d "$path" ] && [ $(basename "$path") != "extract" ]; then
+                    dep_name="$(get_dependency_name "$path")"
+                    analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_UNKNOWN"
+                fi
+            done
+        fi
+    else
+        for dependency in "${dependencies[@]}"; do
+            dependency_substrings=($(split_string_by_delimiter "$dependency"))
+            name="${dependency_substrings[1]}"
+            mach_o_type="${dependency_substrings[2]}"
+            path="${dependency_substrings[3]}"
+            analyze_dependency "$path" "$name" "$mach_o_type"
+        done
+    fi
 }
 
 # Analyze the Frameworks dependencies
