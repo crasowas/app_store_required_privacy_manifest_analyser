@@ -96,6 +96,7 @@ readonly MACH_O_TYPE_DY_LIB="mh_dylib"
 readonly MACH_O_TYPE_UNKNOWN="unknown"
 
 # ANSI color codes
+readonly BOLD_BLACK_COLOR="\033[1;30m"
 readonly GREEN_COLOR="\033[0;32m"
 readonly YELLOW_COLOR="\033[0;33m"
 readonly RESET_COLOR="\033[0m"
@@ -290,7 +291,7 @@ print_title() {
     local border="===================="
 
     echo ""
-    echo "$border $title $border"
+    print_text "$border $BOLD_BLACK_COLOR$title$RESET_COLOR $border"
     echo ""
 }
 
