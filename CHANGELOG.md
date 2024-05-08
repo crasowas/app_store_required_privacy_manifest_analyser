@@ -1,5 +1,6 @@
 ## 2024-05-08
 * Add support for analyzing dependencies managed by Carthage.
+* Rename `ios_spm_example` to `ios_swiftpm_example`.
 
 ## 2024-05-03
 * Add support for analyzing dependencies managed by Swift Package Manager.
