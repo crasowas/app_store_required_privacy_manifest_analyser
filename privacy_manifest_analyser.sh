@@ -46,18 +46,20 @@ fi
 target_dir=$1
 
 pod_file="$target_dir/Podfile"
-# Pods directory will be separately analyzed if it's a Cocoa project
+# Pods directory will be separately analyzed if it's a CocoaPods project
 pods_dir="$target_dir/Pods"
 pods_pbxproj_file="$pods_dir/Pods.xcodeproj/project.pbxproj"
 # Exclude non-library directories within the Pods directory
 pods_excluded_dirs=("$pods_dir/Pods.xcodeproj" "$pods_dir/Target Support Files" "$pods_dir/Local Podspecs" "$pods_dir/Headers")
+# Carthage directory will be separately analyzed if it's a Carthage project
+carthage_dir="$target_dir/Carthage"
 # Flutter plugins directory will be separately analyzed if it's a Flutter project
 flutter_plugins_dir="$target_dir/.symlinks/plugins"
-# Frameworks directory will be separately analyzed if the target directory is an application bundle (.app)
-frameworks_dir="$target_dir/Frameworks"
+# App Frameworks directory will be separately analyzed if the target directory is an application bundle
+app_frameworks_dir="$target_dir/Frameworks"
 
 # Exclude directories to be separately analyzed
-target_excluded_dirs+=("$pods_dir" "$flutter_plugins_dir" "$frameworks_dir")
+target_excluded_dirs+=("$pods_dir" "$carthage_dir" "$flutter_plugins_dir" "$app_frameworks_dir")
 
 # Temporary file for keeping track of recursively traversed directories
 visited_dirs_tempfile=$(mktemp)
@@ -378,7 +380,7 @@ check_use_frameworks() {
 }
 
 # Search for the names of dependencies managed by CocoaPods
-search_names_in_pods() {
+search_names_in_cocoapods() {
     local file_path="$1"
     
     awk '
@@ -402,7 +404,7 @@ search_names_in_pods() {
 }
 
 # Search for the products of dependencies managed by CocoaPods
-search_products_in_pods() {
+search_products_in_cocoapods() {
     local file_path="$1"
 
     awk -v delimiter="$DELIMITER" '
@@ -436,7 +438,7 @@ search_products_in_pods() {
 
 # Search for the Mach-O types of dependencies managed by CocoaPods
 # Note: If the dependency is a framework, it will not be included in the search results
-search_mach_o_types_in_pods() {
+search_mach_o_types_in_cocoapods() {
     local file_path="$1"
     
     awk -v use_frameworks="$2" -v static_lib="$MACH_O_TYPE_STATIC_LIB" -v dy_lib="$MACH_O_TYPE_DY_LIB" -v delimiter="$DELIMITER" '
@@ -475,12 +477,12 @@ search_mach_o_types_in_pods() {
 }
 
 # Search for dependencies managed by CocoaPods
-search_dependencies_in_pods() {
+search_dependencies_in_cocoapods() {
     local file_path="$1"
     
-    local names=($(search_names_in_pods "$file_path"))
-    local products=($(search_products_in_pods "$file_path"))
-    local mach_o_types=($(search_mach_o_types_in_pods "$file_path" "$2"))
+    local names=($(search_names_in_cocoapods "$file_path"))
+    local products=($(search_products_in_cocoapods "$file_path"))
+    local mach_o_types=($(search_mach_o_types_in_cocoapods "$file_path" "$2"))
     
     for dep_name in "${names[@]}"; do
         # Find the product name of the dependency
@@ -557,7 +559,7 @@ get_embed_frameworks() {
 }
 
 # Search for the packages of dependencies managed by Swift Package Manager
-search_packages_in_spm() {
+search_packages_in_swiftpm() {
     local file_path="$1"
     
     awk -v delimiter="$DELIMITER" '
@@ -591,7 +593,7 @@ search_packages_in_spm() {
 }
 
 # Search for the artifacts of dependencies managed by Swift Package Manager
-search_artifacts_in_spm() {
+search_artifacts_in_swiftpm() {
     local file_path="$1"
     
     awk -v delimiter="$DELIMITER" '
@@ -632,7 +634,7 @@ search_artifacts_in_spm() {
 }
 
 # Search for dependencies managed by Swift Package Manager
-search_dependencies_in_spm() {
+search_dependencies_in_swiftpm() {
     local file_path="$1"
     local source_packages_dir="$2"
     local checkouts_dir="$3"
@@ -642,9 +644,9 @@ search_dependencies_in_spm() {
         return
     fi
     
-    local packages=($(search_packages_in_spm "$file_path"))
+    local packages=($(search_packages_in_swiftpm "$file_path"))
     local embed_frameworks=($(get_embed_frameworks "$file_path"))
-    local artifacts=($(search_artifacts_in_spm "$workspace_state_file"))
+    local artifacts=($(search_artifacts_in_swiftpm "$workspace_state_file"))
     
     for package in "${packages[@]}"; do
         package_substrings=($(split_string_by_delimiter "$package"))
@@ -692,9 +694,9 @@ get_dependency_name() {
     local dep_path="$1"
     local dir_name=$(basename "$dep_path")
     
-    # Remove version name for Flutter plugin dependencies
+    # Remove version name for Flutter Plugin dependencies
     local dep_name="${dir_name%-[0-9]*}"
-    # Remove .app and .framework suffixes
+    # Remove .app, .framework, and .xcframework suffixes
     dep_name="${dep_name%.*}"
     
     echo "$dep_name"
@@ -1058,14 +1060,17 @@ analyze_dependency() {
         print_text "Analyzing $GREEN_COLOR$dep_name$RESET_COLOR ..."
     fi
     
-    echo "Mach-O Type: $mach_o_type"
+    # The dependencies with an unknown Mach-O type are typically binary dependencies
+    if ! [ "$mach_o_type" == "$MACH_O_TYPE_UNKNOWN" ]; then
+        echo "Mach-O Type: $mach_o_type"
+    fi
     
     analyze "$dep_path" "$mach_o_type"
     echo ""
 }
 
-# Analyze the CocoaPods dependencies
-analyze_pods_dependencies() {
+# Analyze the dependencies of the CocoaPods
+analyze_cocoapods_dependencies() {
     if ! [ -d "$pods_dir" ]; then
         return
     fi
@@ -1081,7 +1086,7 @@ analyze_pods_dependencies() {
     
     if [ -f "$pods_pbxproj_file" ]; then
         dependencies=()
-        search_dependencies_in_pods "$pods_pbxproj_file" $use_frameworks
+        search_dependencies_in_cocoapods "$pods_pbxproj_file" $use_frameworks
     fi
     
     if [ "$verbose" == true ]; then
@@ -1103,29 +1108,11 @@ analyze_pods_dependencies() {
     done
 }
 
-# Analyze the Flutter plugin dependencies
-# Note: The type identification of Flutter plugin dependencies is completed during the analysis of the CocoaPods dependencies, so execute it after the `analyze_pods_dependencies` function
-analyze_flutter_plugin_dependencies() {
-    if ! [ -d "$flutter_plugins_dir" ]; then
-        return
-    fi
-    
-    print_title "Analyzing Flutter Plugin Dependencies"
-    
-    for path in "$flutter_plugins_dir"/*; do
-        dep_path="$(readlink -f "$path")"
-        dep_name="$(get_dependency_name "$path")"
-        if [ -d "$dep_path" ]; then
-            analyze_dependency "$dep_path" "$dep_name"
-        fi
-    done
-}
-
-# Analyze the Swift Package Manager dependencies
-analyze_spm_dependencies() {
+# Analyze the dependencies of the Swift Package Manager
+analyze_swiftpm_dependencies() {
     # Check if the project is using Swift Package Manager
-    local spm_package_resolved_file="$project_xcodeproj_file/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
-    if ! [ -f "$spm_package_resolved_file" ]; then
+    local swiftpm_package_resolved_file="$project_xcodeproj_file/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+    if ! [ -f "$swiftpm_package_resolved_file" ]; then
         return
     fi
     
@@ -1138,7 +1125,7 @@ analyze_spm_dependencies() {
     
     if [ -f "$project_pbxproj_file" ] && [ -d "$source_packages_dir" ] && [ -d "$checkouts_dir" ]; then
         dependencies=()
-        search_dependencies_in_spm "$project_pbxproj_file" "$source_packages_dir" "$checkouts_dir"
+        search_dependencies_in_swiftpm "$project_pbxproj_file" "$source_packages_dir" "$checkouts_dir"
     fi
     
     if [ "$verbose" == true ]; then
@@ -1177,15 +1164,55 @@ analyze_spm_dependencies() {
     fi
 }
 
-# Analyze the Frameworks dependencies
-analyze_frameworks_dependencies() {
-    if ! [ -d "$frameworks_dir" ]; then
+# Analyze the dependencies of the Carthage
+analyze_carthage_dependencies() {
+    if ! [ -d "$carthage_dir" ]; then
         return
     fi
     
-    print_title "Analyzing Frameworks Dependencies"
+    print_title "Analyzing Carthage Dependencies"
     
-    for path in "$frameworks_dir"/*; do
+    local carthage_build_dir="$carthage_dir/Build"
+    
+    if ! [ -d "$carthage_build_dir" ]; then
+        return
+    fi
+    
+    for path in "$carthage_build_dir"/*; do
+        if [ -d "$path" ]; then
+            dep_name="$(get_dependency_name "$path")"
+            analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_UNKNOWN"
+        fi
+    done
+}
+
+# Analyze the dependencies of the Flutter Plugin
+# Note: The type identification of Flutter Plugin dependencies is completed during the analysis of the CocoaPods dependencies, so execute it after the `analyze_cocoapods_dependencies` function
+analyze_flutter_plugin_dependencies() {
+    if ! [ -d "$flutter_plugins_dir" ]; then
+        return
+    fi
+    
+    print_title "Analyzing Flutter Plugin Dependencies"
+    
+    for path in "$flutter_plugins_dir"/*; do
+        dep_path="$(readlink -f "$path")"
+        dep_name="$(get_dependency_name "$path")"
+        if [ -d "$dep_path" ]; then
+            analyze_dependency "$dep_path" "$dep_name"
+        fi
+    done
+}
+
+# Analyze the dependencies of the Application Bundle
+analyze_app_dependencies() {
+    if ! [ -d "$app_frameworks_dir" ]; then
+        return
+    fi
+    
+    print_title "Analyzing Application Bundle Dependencies"
+    
+    for path in "$app_frameworks_dir"/*; do
         if [ -d "$path" ]; then
             dep_name="$(get_dependency_name "$path")"
             analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_DY_LIB"
@@ -1196,10 +1223,11 @@ analyze_frameworks_dependencies() {
 start_time=$(date +%s)
 
 analyze_target_dir
-analyze_pods_dependencies
+analyze_cocoapods_dependencies
+analyze_swiftpm_dependencies
+analyze_carthage_dependencies
 analyze_flutter_plugin_dependencies
-analyze_spm_dependencies
-analyze_frameworks_dependencies
+analyze_app_dependencies
 
 end_time=$(date +%s)
 

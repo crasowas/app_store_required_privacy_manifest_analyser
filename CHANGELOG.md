@@ -1,3 +1,6 @@
+## 2024-05-08
+* Add support for analyzing dependencies managed by Carthage.
+
 ## 2024-05-03
 * Add support for analyzing dependencies managed by Swift Package Manager.
 * Add ios spm example.

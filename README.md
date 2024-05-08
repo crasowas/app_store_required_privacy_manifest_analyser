@@ -2,7 +2,7 @@
 
 ## Features
 
-* Support the analysis of API usage within directories, including CocoaPods projects, Flutter projects, SPM projects, and application bundles (`.app`)
+* Support analysis of API usage within any directory
 * Scan all source files (including `.h`, `.m`, `.mm`, `.c`, `.cc`, `.hpp`, `.cpp`, and `.swift` files) as well as binary files
 * Automatically detect missing privacy manifest files and API declarations
 * Support for tagging commonly used SDKs
@@ -163,11 +163,15 @@ sh privacy_manifest_analyser.sh -v <directory_path>
 sh privacy_manifest_analyser.sh <directory_path> > log.txt
 ```
 
-### 4. More Examples
+## Supported Dependency Sources for Separate Analysis
 
-* [ios_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_example)
-* [ios_spm_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_spm_example)
-* [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)
+| Dependency Source     | Example                                                                                                                        |
+|-----------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| CocoaPods             | [ios_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_example)         |
+| Swift Package Manager | [ios_spm_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_spm_example) |
+| Carthage              | Planned                                                                                                                        |
+| Flutter Plugin        | [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example) |
+| Application Bundle    | Planned                                                                                                                        |
 
 ## Acknowledgements
 
