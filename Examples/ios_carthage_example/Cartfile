@@ -1,0 +1,5 @@
+github "Alamofire/Alamofire"
+
+github "SnapKit/SnapKit"
+
+github "facebook/facebook-ios-sdk" ~> 17.0.0

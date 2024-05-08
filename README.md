@@ -165,13 +165,13 @@ sh privacy_manifest_analyser.sh <directory_path> > log.txt
 
 ## Supported Dependency Sources for Separate Analysis
 
-| Dependency Source     | Example                                                                                                                                |
-|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| CocoaPods             | [ios_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_example)                 |
-| Swift Package Manager | [ios_swiftpm_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_swiftpm_example) |
-| Carthage              | Planned                                                                                                                                |
-| Flutter Plugin        | [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)         |
-| Application Bundle    | Planned                                                                                                                                |
+| Dependency Source     | Example                                                                                                                                  |
+|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------|
+| CocoaPods             | [ios_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_example)                   |
+| Swift Package Manager | [ios_swiftpm_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_swiftpm_example)   |
+| Carthage              | [ios_carthage_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_carthage_example) |
+| Flutter Plugin        | [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)           |
+| Application Bundle    | Planned                                                                                                                                  |
 
 ## Acknowledgements
 
