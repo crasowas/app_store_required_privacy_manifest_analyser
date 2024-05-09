@@ -290,10 +290,22 @@ readonly COMMON_SDKS=(
 # Print a formatted title
 print_title() {
     local title="$1"
-    local border="===================="
+    local title_length=${#title}
+    local border_width=$(( (80 - title_length) / 2 ))
+    local border_left=""
+    
+    for ((i=0; i<border_width; i++)); do
+        border_left+="="
+    done
+    
+    local border_right="$border_left"
+
+    if ((title_length % 2 == 1)); then
+        border_right+="="
+    fi
 
     echo ""
-    print_text "$border $BOLD_BLACK_COLOR$title$RESET_COLOR $border"
+    print_text "$border_left $BOLD_BLACK_COLOR$title$RESET_COLOR $border_right"
     echo ""
 }
 
