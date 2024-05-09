@@ -694,7 +694,7 @@ get_dependency_name() {
     local dep_path="$1"
     local dir_name=$(basename "$dep_path")
     
-    # Remove version name for Flutter Plugin dependencies
+    # Remove version name for Flutter dependencies
     local dep_name="${dir_name%-[0-9]*}"
     # Remove .app, .framework, and .xcframework suffixes
     dep_name="${dep_name%.*}"
@@ -1186,14 +1186,14 @@ analyze_carthage_dependencies() {
     done
 }
 
-# Analyze the dependencies of the Flutter Plugin
-# Note: The type identification of Flutter Plugin dependencies is completed during the analysis of the CocoaPods dependencies, so execute it after the `analyze_cocoapods_dependencies` function
-analyze_flutter_plugin_dependencies() {
+# Analyze the dependencies of the Flutter
+# Note: The type identification of Flutter dependencies is completed during the analysis of the CocoaPods dependencies, so execute it after the `analyze_cocoapods_dependencies` function
+analyze_flutter_dependencies() {
     if ! [ -d "$flutter_plugins_dir" ]; then
         return
     fi
     
-    print_title "Analyzing Flutter Plugin Dependencies"
+    print_title "Analyzing Flutter Dependencies"
     
     for path in "$flutter_plugins_dir"/*; do
         dep_path="$(readlink -f "$path")"
@@ -1226,7 +1226,7 @@ analyze_target_dir
 analyze_cocoapods_dependencies
 analyze_swiftpm_dependencies
 analyze_carthage_dependencies
-analyze_flutter_plugin_dependencies
+analyze_flutter_dependencies
 analyze_app_dependencies
 
 end_time=$(date +%s)

@@ -1,5 +1,10 @@
 # App Store Privacy Manifest Analyzer
 
+[![Analysis Support](https://img.shields.io/badge/Analysis%20Support-CocoaPods%20%7C%20SwiftPM%20%7C%20Carthage%20%7C%20Flutter%20%7C%20App-brightgreen)](https://github.com/crasowas/app_store_required_privacy_manifest_analyser?#supported-dependency-sources-for-separate-analysis)
+[![license](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+A shell script used to analyze privacy manifests in the specified directory to ensure that your app complies with the App Store requirements.
+
 ## Features
 
 * Support analysis of API usage within any directory
@@ -81,7 +86,7 @@ API usage analysis result(s): 0
 
 ...
 
-==================== Analyzing Flutter Plugin Dependencies ====================
+==================== Analyzing Flutter Dependencies ====================
 
 Analyzing device_info_plus-9.1.0 🎯 ...
 ⚠️  Missing privacy manifest file!
@@ -170,7 +175,7 @@ sh privacy_manifest_analyser.sh <directory_path> > log.txt
 | CocoaPods             | [ios_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_example)                   |
 | Swift Package Manager | [ios_swiftpm_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_swiftpm_example)   |
 | Carthage              | [ios_carthage_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_carthage_example) |
-| Flutter Plugin        | [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)           |
+| Flutter               | [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)           |
 | Application Bundle    | Planned                                                                                                                                  |
 
 ## Acknowledgements
