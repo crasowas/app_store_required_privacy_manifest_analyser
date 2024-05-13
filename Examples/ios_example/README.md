@@ -14,6 +14,8 @@ To disable comment filtering, please use the following command:
 sh ../../privacy_manifest_analyser.sh -c .
 ```
 
+If your project has local dependencies, please use the `-d` option to specify the directory where the local dependencies are located. Dependencies in this directory will be analyzed separately.
+
 ## Notes
 
 `NSPrivacyAccessedAPICategoryFileTimestamp` and `NSPrivacyAccessedAPICategoryDiskSpace` have some overlapping APIs:

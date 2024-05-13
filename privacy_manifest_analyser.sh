@@ -15,13 +15,18 @@ ignore_dependencies=false
 # Print verbose information when the `-v` option is enabled
 verbose=false
 
+# An array of directories for local dependencies
+local_dependencies_dirs=()
+
 # An array of directories excluded from analysis
 target_excluded_dirs=()
 
 # Parse command-line options
-while getopts ":ce:iv" opt; do
+while getopts ":cd:e:iv" opt; do
   case $opt in
     c) keep_comment=true
+    ;;
+    d) local_dependencies_dirs+=("$OPTARG")
     ;;
     e) target_excluded_dirs+=("$OPTARG")
     ;;
@@ -46,20 +51,20 @@ fi
 target_dir=$1
 
 pod_file="$target_dir/Podfile"
-# Pods directory will be separately analyzed if it's a CocoaPods project
+# Pods directory will be analyzed separately if it's a CocoaPods project
 pods_dir="$target_dir/Pods"
 pods_pbxproj_file="$pods_dir/Pods.xcodeproj/project.pbxproj"
 # Exclude non-library directories within the Pods directory
 pods_excluded_dirs=("$pods_dir/Pods.xcodeproj" "$pods_dir/Target Support Files" "$pods_dir/Local Podspecs" "$pods_dir/Headers")
-# Carthage directory will be separately analyzed if it's a Carthage project
+# Carthage directory will be analyzed separately if it's a Carthage project
 carthage_dir="$target_dir/Carthage"
-# Flutter plugins directory will be separately analyzed if it's a Flutter project
+# Flutter plugins directory will be analyzed separately if it's a Flutter project
 flutter_plugins_dir="$target_dir/.symlinks/plugins"
-# App Frameworks directory will be separately analyzed if the target directory is an application bundle
+# App Frameworks directory will be analyzed separately if the target directory is an application bundle
 app_frameworks_dir="$target_dir/Frameworks"
 
-# Exclude directories to be separately analyzed
-target_excluded_dirs+=("$pods_dir" "$carthage_dir" "$flutter_plugins_dir" "$app_frameworks_dir")
+# Exclude directories to be analyzed separately
+target_excluded_dirs+=("$pods_dir" "$carthage_dir" "${local_dependencies_dirs[@]}" "$flutter_plugins_dir" "$app_frameworks_dir")
 
 # Temporary file for keeping track of recursively traversed directories
 visited_dirs_tempfile=$(mktemp)
@@ -725,7 +730,7 @@ get_mach_o_type() {
         fi
     done
     
-    echo ""
+    echo "$MACH_O_TYPE_UNKNOWN"
 }
 
 is_excluded_dir() {
@@ -1198,6 +1203,30 @@ analyze_carthage_dependencies() {
     done
 }
 
+# Analyze the local dependencies
+analyze_local_dependencies() {
+    if [[ ${#local_dependencies_dirs[@]} -eq 0 ]]; then
+        return
+    fi
+    
+    for local_dependencies_dir in "${local_dependencies_dirs[@]}"; do
+        if ! [ -d "$local_dependencies_dir" ]; then
+            return
+        fi
+        
+        local dir_name=$(basename "$local_dependencies_dir")
+    
+        print_title "Analyzing $dir_name Dependencies"
+    
+        for path in "$local_dependencies_dir"/*; do
+            if [ -d "$path" ]; then
+                dep_name="$(get_dependency_name "$path")"
+                analyze_dependency "$path" "$dep_name"
+            fi
+        done
+    done
+}
+
 # Analyze the dependencies of the Flutter
 # Note: The type identification of Flutter dependencies is completed during the analysis of the CocoaPods dependencies, so execute it after the `analyze_cocoapods_dependencies` function
 analyze_flutter_dependencies() {
@@ -1238,6 +1267,7 @@ analyze_target_dir
 analyze_cocoapods_dependencies
 analyze_swiftpm_dependencies
 analyze_carthage_dependencies
+analyze_local_dependencies
 analyze_flutter_dependencies
 analyze_app_dependencies
 

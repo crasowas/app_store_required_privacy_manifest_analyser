@@ -1,6 +1,6 @@
 # App Store Privacy Manifest Analyzer
 
-[![Analysis Support](https://img.shields.io/badge/Analysis%20Support-CocoaPods%20%7C%20SwiftPM%20%7C%20Carthage%20%7C%20Flutter%20%7C%20App-brightgreen)](https://github.com/crasowas/app_store_required_privacy_manifest_analyser?#supported-dependency-sources-for-separate-analysis)
+[![Analysis Support](https://img.shields.io/badge/Analysis%20Support-CocoaPods%20%7C%20SwiftPM%20%7C%20Carthage%20%7C%20Flutter%20%7C%20App-brightgreen)](#supported-dependency-sources-for-separate-analysis)
 [![license](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 A shell script used to analyze privacy manifests in the specified directory to ensure that your app complies with the App Store requirements.
@@ -144,6 +144,14 @@ sh privacy_manifest_analyser.sh -c <directory_path>
 
 It is not recommended to enable this option for the accuracy of API scanning.
 
+* `-d`: Specify the directory where local dependencies are located (e.g., Vendor, ThirdParty, etc.)
+
+```shell
+sh privacy_manifest_analyser.sh -d <dependencies_directory_path> <directory_path>
+```
+
+Local dependencies will be analyzed separately, just like dependencies from CocoaPods, SwiftPM, Carthage, and so on.
+
 * `-e`: Specify directory to exclude from analysis
 
 ```shell
@@ -155,6 +163,8 @@ sh privacy_manifest_analyser.sh -e <excluded_directory_path> <directory_path>
 ```shell
 sh privacy_manifest_analyser.sh -i <directory_path>
 ```
+
+This option is typically used for the analysis of Swift Package Manager projects. Please refer to: [ios_swiftpm_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_swiftpm_example#notes).
 
 * `-v`: Display verbose information
 

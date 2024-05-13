@@ -12,8 +12,10 @@ An iOS project example used to test whether the privacy manifest analyzer is wor
 
 Since dependency resolution in Swift Package Manager projects is more complex, it results in less accuracy in analysis compared to CocoaPods projects.
 
-If you need to analyze all packages, even those not actually depended upon by the project but remaining in cache, use the following command to ignore dependencies during analysis:
+If there are missing dependencies or other issues in the analysis results, it is recommended to use the following command to ignore dependencies during analysis, thus analyzing all packages:
 
 ```shell
 sh ../../privacy_manifest_analyser.sh -i .
 ```
+
+**Some packages may not be project dependencies when analyzing all packages, but uncleared caches. Please judge based on your project's actual situation.**
