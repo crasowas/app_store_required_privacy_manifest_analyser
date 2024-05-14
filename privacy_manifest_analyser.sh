@@ -67,7 +67,7 @@ app_frameworks_dir="$target_dir/Frameworks"
 target_excluded_dirs+=("$pods_dir" "$carthage_dir" "${local_dependencies_dirs[@]}" "$flutter_plugins_dir" "$app_frameworks_dir")
 
 # Temporary file for keeping track of recursively traversed directories
-visited_dirs_tempfile=$(mktemp)
+visited_dirs_tempfile="$(mktemp)"
 trap "rm -f $visited_dirs_tempfile" EXIT
 
 # Analysis indicators
@@ -365,7 +365,7 @@ filter_comment() {
 
 # Check if the specified file is statically linked library
 is_statically_linked_lib() {
-    local file_info=$(file "$1")
+    local file_info="$(file "$1")"
     
     if [[ $file_info == *"current ar archive"* ]]; then
         return 0
@@ -376,7 +376,7 @@ is_statically_linked_lib() {
 
 # Check if the specified file is dynamically linked library
 is_dynamically_linked_lib() {
-    local file_info=$(file "$1")
+    local file_info="$(file "$1")"
     
     if [[ $file_info == *"dynamically linked"* ]]; then
         return 0
@@ -509,7 +509,7 @@ search_dependencies_in_cocoapods() {
             product_substrings=($(split_string_by_delimiter "$product"))
             product_type=${product_substrings[2]}
             if [ "$dep_name" == "${product_substrings[0]}" ]; then
-                if ! [ "$product_type" == "com.apple.product-type.bundle" ]; then
+                if [ "$product_type" != "com.apple.product-type.bundle" ]; then
                     dep_product_name=${product_substrings[1]}
                 else
                     dep_product_name=""
@@ -546,7 +546,7 @@ get_source_packages_dir() {
     
     # Find the DerivedData directory of the project. If there are multiple, by default return the latest one
     # Perhaps it would be more accurate to let the user choose?
-    local project_derived_data_dir=$(find "$derived_data_dir" -maxdepth 1 -type d -name "$project_name-*" -exec stat -f "%m %N" {} + | sort -rn | head -n1 | cut -d ' ' -f2-)
+    local project_derived_data_dir="$(find "$derived_data_dir" -maxdepth 1 -type d -name "$project_name-*" -exec stat -f "%m %N" {} + | sort -rn | head -n1 | cut -d ' ' -f2-)"
     
     echo "$project_derived_data_dir/SourcePackages"
 }
@@ -694,7 +694,7 @@ search_dependencies_in_swiftpm() {
             
             if [ "$dep_name" == "${artifact_substrings[0]}" ]; then
                 dep_mach_o_type="$MACH_O_TYPE_UNKNOWN"
-                dep_path=$(echo ${artifact_substrings[2]} | sed "s/\(.*\/$dep_name\).*/\1/")
+                dep_path="$(echo ${artifact_substrings[2]} | sed "s/\(.*\/$dep_name\).*/\1/")"
                 break
             fi
         done
@@ -709,7 +709,7 @@ search_dependencies_in_swiftpm() {
 
 get_dependency_name() {
     local dep_path="$1"
-    local dir_name=$(basename "$dep_path")
+    local dir_name="$(basename "$dep_path")"
     
     # Remove version name for Flutter dependencies
     local dep_name="${dir_name%-[0-9]*}"
@@ -747,9 +747,7 @@ is_excluded_dir() {
 }
 
 is_visited_dir() {
-    local dir_path="$1"
-    
-    dir_path=$(readlink -f "$dir_path")
+    local dir_path="$(readlink -f "$1")"
     
     if grep -qFx "$dir_path" "$visited_dirs_tempfile"; then
         return 0
@@ -911,7 +909,7 @@ search_privacy_manifest_files() {
     local -a privacy_manifest_files=()
 
     # Create a temporary file to store search results
-    local tempfile=$(mktemp)
+    local tempfile="$(mktemp)"
 
     # Ensure the temporary file is deleted on script exit
     trap "rm -f $tempfile" EXIT
@@ -938,9 +936,9 @@ search_privacy_manifest_files() {
 
 get_privacy_manifest_file() {
     # If there are multiple privacy manifest files, return the one with the shortest path
-    local privacy_manifest_file=$(printf "%s\n" "$@" | awk '{print length, $0}' | sort -n | head -n1 | cut -d ' ' -f2-)
+    local privacy_manifest_file="$(printf "%s\n" "$@" | awk '{print length, $0}' | sort -n | head -n1 | cut -d ' ' -f2-)"
     
-    echo $(decode_path "$privacy_manifest_file")
+    echo "$(decode_path "$privacy_manifest_file")"
 }
 
 check_privacy_manifest_file() {
@@ -963,7 +961,7 @@ get_categories() {
     for result in "${results[@]}"; do
         substrings=($(split_string_by_delimiter "$result"))
         category=${substrings[0]}
-        if ! [[ "$(IFS=" "; echo "${categories[@]}")" =~ "$category" ]]; then
+        if [[ ! "${categories[@]}" =~ "$category" ]]; then
             categories+=("$category")
         fi
     done
@@ -1023,7 +1021,7 @@ analyze() {
     check_categories "$(get_privacy_manifest_file "${privacy_manifest_files[@]}")" "${categories[@]}"
     
     # If identified as a dynamic library, disregard the effect of the analysis results on the application's privacy manifest
-    if ! [ "$mach_o_type" == "$MACH_O_TYPE_DY_LIB" ]; then
+    if [ "$mach_o_type" != "$MACH_O_TYPE_DY_LIB" ]; then
         for result in "${results[@]}"; do
             result_substrings=($(split_string_by_delimiter "$result"))
             file_path="$(decode_path "${result_substrings[2]}")"
@@ -1066,7 +1064,7 @@ analyze_dependency() {
     
     # Get the Mach-O type based on the dependency name
     if [ -z "$mach_o_type" ]; then
-        mach_o_type=$(get_mach_o_type "$dep_name")
+        mach_o_type="$(get_mach_o_type "$dep_name")"
     fi
     
     # Check if the dependency is a common SDK
@@ -1078,7 +1076,7 @@ analyze_dependency() {
     fi
     
     # The dependencies with an unknown Mach-O type are typically binary dependencies
-    if ! [ "$mach_o_type" == "$MACH_O_TYPE_UNKNOWN" ]; then
+    if [ "$mach_o_type" != "$MACH_O_TYPE_UNKNOWN" ]; then
         echo "Mach-O Type: $mach_o_type"
     fi
     
@@ -1164,7 +1162,7 @@ analyze_swiftpm_dependencies() {
 
         if [ -d "$artifacts_dir" ]; then
             for path in "$artifacts_dir"/*; do
-                if [ -d "$path" ] && [ $(basename "$path") != "extract" ]; then
+                if [ -d "$path" ] && [ "$(basename "$path")" != "extract" ]; then
                     dep_name="$(get_dependency_name "$path")"
                     analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_UNKNOWN"
                 fi
@@ -1214,7 +1212,7 @@ analyze_local_dependencies() {
             return
         fi
         
-        local dir_name=$(basename "$local_dependencies_dir")
+        local dir_name="$(basename "$local_dependencies_dir")"
     
         print_title "Analyzing $dir_name Dependencies"
     
