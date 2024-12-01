@@ -48,7 +48,7 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-target_dir=$1
+target_dir="$1"
 
 pod_file="$target_dir/Podfile"
 # Pods directory will be analyzed separately if it's a CocoaPods project
@@ -204,20 +204,30 @@ readonly API_SYMBOLS=(
 # See also:
 #   * https://developer.apple.com/support/third-party-SDK-requirements
 readonly COMMON_SDKS=(
+    # Abseil:abseil:absl
     "Abseil"
+    "abseil"
+    "absl"
     "AFNetworking"
     "Alamofire"
     "AppAuth"
+    # BoringSSL / openssl_grpc:BoringSSL-GRPC:openssl_grpc
     "BoringSSL / openssl_grpc"
+    "BoringSSL-GRPC"
+    "openssl_grpc"
     "Capacitor"
+    # Charts:DGCharts
     "Charts"
+    "DGCharts"
     "connectivity_plus"
     "Cordova"
     "device_info_plus"
     "DKImagePickerController"
     "DKPhotoGallery"
     "FBAEMKit"
+    # FBLPromises:PromisesObjC
     "FBLPromises"
+    "PromisesObjC"
     "FBSDKCoreKit"
     "FBSDKCoreKit_Basics"
     "FBSDKLoginKit"
@@ -245,7 +255,9 @@ readonly COMMON_SDKS=(
     "GoogleSignIn"
     "GoogleToolboxForMac"
     "GoogleUtilities"
+    # grpcpp:gRPC-C++
     "grpcpp"
+    "gRPC-C++"
     "GTMAppAuth"
     "GTMSessionFetcher"
     "hermes"
@@ -254,7 +266,9 @@ readonly COMMON_SDKS=(
     "IQKeyboardManagerSwift"
     "Kingfisher"
     "leveldb"
+    # Lottie:lottie-ios
     "Lottie"
+    "lottie-ios"
     "MBProgressHUD"
     "nanopb"
     "OneSignal"
@@ -267,9 +281,13 @@ readonly COMMON_SDKS=(
     "package_info_plus"
     "path_provider"
     "path_provider_ios"
+    # Promises:PromisesSwift
     "Promises"
+    "PromisesSwift"
     "Protobuf"
+    # Reachability:ReachabilitySwift
     "Reachability"
+    "ReachabilitySwift"
     "RealmSwift"
     "RxCocoa"
     "RxRelay"
@@ -888,12 +906,12 @@ analyze_api_usage() {
             elif [ -f "$path" ]; then
                 # Analyze source files (.swift, .h, .m, .mm, .c, .cc, .hpp, .cpp) and binary files (.a)
                 case "$path" in
-                    *.swift | *.h | *.m | *.mm | *.c | *.cc | *.hpp | *.cpp)
-                        results+=($(analyze_source_file "$path"))
-                        ;;
-                    *.a)
-                        results+=($(analyze_binary_file "$path"))
-                        ;;
+                  *.swift | *.h | *.m | *.mm | *.c | *.cc | *.hpp | *.cpp)
+                    results+=($(analyze_source_file "$path"))
+                    ;;
+                  *.a)
+                    results+=($(analyze_binary_file "$path"))
+                    ;;
                 esac
             fi
         done

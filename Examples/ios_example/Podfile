@@ -4,6 +4,59 @@
 target 'App' do
   use_frameworks!
 
-#  pod 'Alamofire'
+#  pod 'abseil', '~> 1.20240116.1' # Abseil
+#  pod 'AFNetworking', :git => 'https://github.com/crasowas/AFNetworking.git'
+#  pod 'Alamofire', '~> 5.9.0'
+#  pod 'AppAuth', '~> 1.7.0'
+#  pod 'BoringSSL-GRPC', '~> 0.0.32' # BoringSSL / openssl_grpc
+#  pod 'Capacitor', '~> 5.7.3'
+#  pod 'DGCharts', '~> 5.1.0' # Charts
+#  pod 'Cordova', '~> 7.1.0'
+#  pod 'DKImagePickerController', '~> 4.3.6'
+#  pod 'FBAEMKit', '~> 17.0.0'
+#  pod 'PromisesObjC', '~> 2.4.0' # FBLPromises
+#  pod 'FBSDKCoreKit', '~> 17.0.0'
+#  pod 'FBSDKCoreKit_Basics', '~> 17.0.0'
+#  pod 'FBSDKLoginKit', '~> 17.0.1'
+#  pod 'FBSDKShareKit', '~> 17.0.1'
+#  pod 'FirebaseABTesting', '~> 10.22.0'
+#  pod 'FirebaseAuth', '~> 10.22.0'
+#  pod 'FirebaseCore', '~> 10.22.0'
+#  pod 'FirebaseCoreExtension', '~> 10.22.0'
+#  pod 'FirebaseCoreInternal', '~> 10.22.0'
+#  pod 'FirebaseCrashlytics', '~> 10.22.0'
+#  pod 'FirebaseDynamicLinks', '~> 10.22.0'
+#  pod 'FirebaseFirestore', '~> 10.22.0'
+#  pod 'FirebaseInstallations', '~> 10.22.0'
+#  pod 'FirebaseMessaging', '~> 10.22.0'
+#  pod 'FirebaseRemoteConfig', '~> 10.22.0'
+#  pod 'FMDB', '~> 2.7.9'
+#  pod 'GoogleDataTransport', '~> 9.4.0'
+#  pod 'GoogleSignIn', '~> 7.1.0'
+#  pod 'GoogleToolboxForMac', '~> 4.2.0'
+#  pod 'GoogleUtilities', '~> 7.13.0'
+#  pod 'gRPC-C++', '~> 1.64.0' # grpcpp
+#  pod 'GTMAppAuth', '~> 4.1.0'
+#  pod 'GTMSessionFetcher', '~> 3.3.0'
+#  pod 'IQKeyboardManager', '~> 6.5.13'
+#  pod 'IQKeyboardManagerSwift', '~> 6.5.13'
+#  pod 'Kingfisher', '~> 7.9.0'
+#  pod 'lottie-ios', '~> 4.4.0' # Lottie
+#  pod 'OneSignal', '~> 3.12.9'
+#  pod 'OrderedSet', '~> 6.0.2'
+#  pod 'PromisesSwift', '~> 2.4.0' # Promises
+#  pod 'Protobuf', '~> 3.27.0'
+#  pod 'ReachabilitySwift', '~> 5.2.0' # Reachability
+#  pod 'RealmSwift', '~> 10.48.1'
+#  pod 'RxCocoa', '~> 6.8.0'
+#  pod 'RxRelay', '~> 6.8.0'
+#  pod 'RxSwift', '~> 6.8.0'
+#  pod 'SDWebImage', '~> 5.18.7'
+#  pod 'SnapKit', '~> 5.7.0'
+#  pod 'Starscream', '~> 4.0.7'
+#  pod 'SVProgressHUD', '~> 2.3.0'
+#  pod 'SwiftyGif', '~> 5.4.5'
+#  pod 'SwiftyJSON', '~> 5.0.2'
+#  pod 'Toast', '~> 4.1.0'
 
 end
