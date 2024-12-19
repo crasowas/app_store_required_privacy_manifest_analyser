@@ -190,6 +190,14 @@ sh analyser.sh <directory_path> > log.txt
 | Flutter               | [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)           |
 | Application Bundle    | Planned                                                                                                                                  |
 
+## Privacy Access Report
+
+**Use [the tool](https://github.com/crasowas/app_privacy_manifest_fixer) to quickly generate a privacy access report for your app.**
+
+### Report Example
+
+![Report Example](https://img.crasowas.dev/app_privacy_manifest_fixer/20241218230746.png)
+
 ## Commonly Used SDKs
 
 | SDK Name                                                                                                                      | Minimum Supported Version of Privacy Manifest                                                                        |
