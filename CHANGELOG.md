@@ -1,3 +1,6 @@
+## 2024-12-19
+- Rename `privacy_manifest_analyser.sh` to `analyser.sh`.
+
 ## 2024-12-01
 - Enhance recognition for commonly used SDKs.
 

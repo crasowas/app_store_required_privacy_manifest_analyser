@@ -5,7 +5,7 @@
 
 A shell script used to analyze privacy manifests in the specified directory to ensure that your app complies with the App Store requirements.
 
-**If upgrading the SDK does not resolve privacy manifest issues or you wish to keep the project as is without migration, we recommend using the [app_privacy_manifest_fixer](https://github.com/crasowas/app_privacy_manifest_fixer) based on the current analysis script to fix privacy manifest issues.**
+**If upgrading the SDK does not resolve privacy manifest issues or you wish to keep the project as is without migration, it is recommended to use the [app_privacy_manifest_fixer](https://github.com/crasowas/app_privacy_manifest_fixer) based on the current analysis script to fix privacy manifest issues.**
 
 ## Features
 
@@ -42,7 +42,7 @@ xcode-select --install
 ### 1. Getting Started
 
 ```shell
-sh privacy_manifest_analyser.sh <directory_path>
+sh analyser.sh <directory_path>
 ```
 
 Example output:
@@ -141,7 +141,7 @@ To address this confusion, the analyzer will list API usage that may affect your
 - `-c`: Not to filter comments when scanning source code.
 
 ```shell
-sh privacy_manifest_analyser.sh -c <directory_path>
+sh analyser.sh -c <directory_path>
 ```
 
 It is not recommended to enable this option for the accuracy of API scanning.
@@ -149,7 +149,7 @@ It is not recommended to enable this option for the accuracy of API scanning.
 - `-d`: Specify the directory where local dependencies are located (e.g., Vendor, ThirdParty, etc.).
 
 ```shell
-sh privacy_manifest_analyser.sh -d <dependencies_directory_path> <directory_path>
+sh analyser.sh -d <dependencies_directory_path> <directory_path>
 ```
 
 Local dependencies will be analyzed separately, just like dependencies from CocoaPods, SwiftPM, Carthage, and so on.
@@ -157,13 +157,13 @@ Local dependencies will be analyzed separately, just like dependencies from Coco
 - `-e`: Specify directory to exclude from analysis.
 
 ```shell
-sh privacy_manifest_analyser.sh -e <excluded_directory_path> <directory_path>
+sh analyser.sh -e <excluded_directory_path> <directory_path>
 ```
 
 - `-i`: Ignore dependencies during analysis.
 
 ```shell
-sh privacy_manifest_analyser.sh -i <directory_path>
+sh analyser.sh -i <directory_path>
 ```
 
 This option is typically used for the analysis of Swift Package Manager projects. Please refer to: [ios_swiftpm_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_swiftpm_example#notes).
@@ -171,13 +171,13 @@ This option is typically used for the analysis of Swift Package Manager projects
 - `-v`: Display verbose information.
 
 ```shell
-sh privacy_manifest_analyser.sh -v <directory_path>
+sh analyser.sh -v <directory_path>
 ```
 
 ### 3. Saving Analysis Log
 
 ```shell
-sh privacy_manifest_analyser.sh <directory_path> > log.txt
+sh analyser.sh <directory_path> > log.txt
 ```
 
 ## Supported Dependency Sources for Separate Analysis

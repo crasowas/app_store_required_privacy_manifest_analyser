@@ -67,8 +67,8 @@ app_frameworks_dir="$target_dir/Frameworks"
 target_excluded_dirs+=("$pods_dir" "$carthage_dir" "${local_dependencies_dirs[@]}" "$flutter_plugins_dir" "$app_frameworks_dir")
 
 # Temporary file for keeping track of recursively traversed directories
-visited_dirs_tempfile="$(mktemp)"
-trap "rm -f $visited_dirs_tempfile" EXIT
+visited_dirs_temp_file="$(mktemp)"
+trap "rm -f $visited_dirs_temp_file" EXIT
 
 # Analysis indicators
 found_count=0
@@ -109,6 +109,7 @@ readonly YELLOW_COLOR="\033[0;33m"
 readonly RESET_COLOR="\033[0m"
 
 # Text of the required reason APIs and their categories
+#
 # See also:
 #   * https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
 #   * https://github.com/Wooder/ios_17_required_reason_api_scanner/blob/main/required_reason_api_text_scanner.sh
@@ -163,6 +164,7 @@ readonly API_TEXTS=(
 )
 
 # Symbol of the required reason APIs and their categories
+#
 # See also:
 #   * https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
 #   * https://github.com/Wooder/ios_17_required_reason_api_scanner/blob/main/required_reason_api_binary_scanner.sh
@@ -201,6 +203,7 @@ readonly API_SYMBOLS=(
 )
 
 # List of commonly used SDKs
+#
 # See also:
 #   * https://developer.apple.com/support/third-party-SDK-requirements
 readonly COMMON_SDKS=(
@@ -311,7 +314,7 @@ readonly COMMON_SDKS=(
 )
 
 # Print a formatted title
-print_title() {
+function print_title() {
     local title="$1"
     local title_length=${#title}
     local border_width=$(( (80 - title_length) / 2 ))
@@ -333,7 +336,7 @@ print_title() {
 }
 
 # Print a text with or without color
-print_text() {
+function print_text() {
     local text="$1"
 
     if [ -t 1 ]; then
@@ -344,8 +347,8 @@ print_text() {
 }
 
 # Print the elements of an array along with their indices
-print_array() {
-    local -a array=("$@")
+function print_array() {
+    local array=("$@")
     
     for ((i=0; i<${#array[@]}; i++)); do
         print_text "[$i] $(decode_path "${array[i]}")"
@@ -353,7 +356,7 @@ print_array() {
 }
 
 # Split a string into substrings using a specified delimiter
-split_string_by_delimiter() {
+function split_string_by_delimiter() {
     local string="$1"
     local -a substrings=()
 
@@ -363,17 +366,17 @@ split_string_by_delimiter() {
 }
 
 # Encode a path string by replacing space with an escape character
-encode_path() {
-    echo "$1" | sed "s/ /$SPACE_ESCAPE/g";
+function encode_path() {
+    echo "$1" | sed "s/ /$SPACE_ESCAPE/g"
 }
 
 # Decode a path string by replacing encoded character with space
-decode_path() {
-    echo "$1" | sed "s/$SPACE_ESCAPE/ /g";
+function decode_path() {
+    echo "$1" | sed "s/$SPACE_ESCAPE/ /g"
 }
 
 # Filter out comments from the specified source file
-filter_comment() {
+function filter_comment() {
     if [ "$keep_comment" == false ]; then
         sed -e "/\/\*/,/\*\//d" -e "s/\/\/.*//g" "$1"
     else
@@ -382,7 +385,7 @@ filter_comment() {
 }
 
 # Check if the specified file is statically linked library
-is_statically_linked_lib() {
+function is_statically_linked_lib() {
     local file_info="$(file "$1")"
     
     if [[ $file_info == *"current ar archive"* ]]; then
@@ -393,7 +396,7 @@ is_statically_linked_lib() {
 }
 
 # Check if the specified file is dynamically linked library
-is_dynamically_linked_lib() {
+function is_dynamically_linked_lib() {
     local file_info="$(file "$1")"
     
     if [[ $file_info == *"dynamically linked"* ]]; then
@@ -404,7 +407,7 @@ is_dynamically_linked_lib() {
 }
 
 # Check if `use_frameworks!` is specified in the Podfile
-check_use_frameworks() {
+function check_use_frameworks() {
     local file_path="$1"
 
     if grep -qE "^[^#]*\buse_frameworks!\b" "$file_path"; then
@@ -415,7 +418,7 @@ check_use_frameworks() {
 }
 
 # Search for the names of dependencies managed by CocoaPods
-search_names_in_cocoapods() {
+function search_names_in_cocoapods() {
     local file_path="$1"
     
     awk '
@@ -439,7 +442,7 @@ search_names_in_cocoapods() {
 }
 
 # Search for the products of dependencies managed by CocoaPods
-search_products_in_cocoapods() {
+function search_products_in_cocoapods() {
     local file_path="$1"
 
     awk -v delimiter="$DELIMITER" '
@@ -473,7 +476,7 @@ search_products_in_cocoapods() {
 
 # Search for the Mach-O types of dependencies managed by CocoaPods
 # Note: If the dependency is a framework, it will not be included in the search results
-search_mach_o_types_in_cocoapods() {
+function search_mach_o_types_in_cocoapods() {
     local file_path="$1"
     
     awk -v use_frameworks="$2" -v static_lib="$MACH_O_TYPE_STATIC_LIB" -v dy_lib="$MACH_O_TYPE_DY_LIB" -v delimiter="$DELIMITER" '
@@ -512,7 +515,7 @@ search_mach_o_types_in_cocoapods() {
 }
 
 # Search for dependencies managed by CocoaPods
-search_dependencies_in_cocoapods() {
+function search_dependencies_in_cocoapods() {
     local file_path="$1"
     
     local names=($(search_names_in_cocoapods "$file_path"))
@@ -554,7 +557,7 @@ search_dependencies_in_cocoapods() {
 }
 
 # Get the SourcePackages directory, which is used to store Swift Package Manager dependencies
-get_source_packages_dir() {
+function get_source_packages_dir() {
     local derived_data_dir="$HOME/Library/Developer/Xcode/DerivedData"
     
     if ! [ -d "$derived_data_dir" ] || [ -z "$project_name" ]; then
@@ -570,7 +573,7 @@ get_source_packages_dir() {
 }
 
 # Get the Embed Frameworks from the specified `project.pbxproj` file
-get_embed_frameworks() {
+function get_embed_frameworks() {
     local file_path="$1"
     
     awk '
@@ -594,7 +597,7 @@ get_embed_frameworks() {
 }
 
 # Search for the packages of dependencies managed by Swift Package Manager
-search_packages_in_swiftpm() {
+function search_packages_in_swiftpm() {
     local file_path="$1"
     
     awk -v delimiter="$DELIMITER" '
@@ -628,7 +631,7 @@ search_packages_in_swiftpm() {
 }
 
 # Search for the artifacts of dependencies managed by Swift Package Manager
-search_artifacts_in_swiftpm() {
+function search_artifacts_in_swiftpm() {
     local file_path="$1"
     
     awk -v delimiter="$DELIMITER" '
@@ -669,7 +672,7 @@ search_artifacts_in_swiftpm() {
 }
 
 # Search for dependencies managed by Swift Package Manager
-search_dependencies_in_swiftpm() {
+function search_dependencies_in_swiftpm() {
     local file_path="$1"
     local source_packages_dir="$2"
     local checkouts_dir="$3"
@@ -725,7 +728,7 @@ search_dependencies_in_swiftpm() {
     done
 }
 
-get_dependency_name() {
+function get_dependency_name() {
     local dep_path="$1"
     local dir_name="$(basename "$dep_path")"
     
@@ -737,7 +740,7 @@ get_dependency_name() {
     echo "$dep_name"
 }
 
-get_mach_o_type() {
+function get_mach_o_type() {
     local dep_name="$1"
     
     for dependency in "${dependencies[@]}"; do
@@ -751,7 +754,7 @@ get_mach_o_type() {
     echo "$MACH_O_TYPE_UNKNOWN"
 }
 
-is_excluded_dir() {
+function is_excluded_dir() {
     local dir_path="$1"
     local excluded_dirs=("${@:2}")
     
@@ -764,18 +767,18 @@ is_excluded_dir() {
     return 1
 }
 
-is_visited_dir() {
+function is_visited_dir() {
     local dir_path="$(readlink -f "$1")"
     
-    if grep -qFx "$dir_path" "$visited_dirs_tempfile"; then
+    if grep -qFx "$dir_path" "$visited_dirs_temp_file"; then
         return 0
     else
-        echo "$dir_path" >> "$visited_dirs_tempfile"
+        echo "$dir_path" >> "$visited_dirs_temp_file"
         return 1
     fi
 }
 
-is_dependency() {
+function is_dependency() {
     local dep_name="$1"
     
     for dependency in "${dependencies[@]}"; do
@@ -788,7 +791,7 @@ is_dependency() {
     return 1
 }
 
-is_common_sdk() {
+function is_common_sdk() {
     local dep_name="$1"
     
     for common_sdk in "${COMMON_SDKS[@]}"; do
@@ -801,7 +804,7 @@ is_common_sdk() {
 }
 
 # Analyze the specified source file for API texts and their categories
-analyze_source_file() {
+function analyze_source_file() {
     local file_path="$1"
     local -a results=()
 
@@ -835,7 +838,7 @@ analyze_source_file() {
 }
 
 # Analyze the specified binary file for API symbols and their categories
-analyze_binary_file() {
+function analyze_binary_file() {
     local file_path="$1"
     local -a results=()
     
@@ -869,7 +872,7 @@ analyze_binary_file() {
 }
 
 # Recursively analyzes API usage in a directory and its subdirectories
-analyze_api_usage() {
+function analyze_api_usage() {
     local dir_path="$1"
     local excluded_dirs=("${@:2}")
     local -a results=()
@@ -921,19 +924,19 @@ analyze_api_usage() {
 }
 
 # Search for privacy manifest files in a directory
-search_privacy_manifest_files() {
+function search_privacy_manifest_files() {
     local dir_path="$1"
     local excluded_dirs=("${@:2}")
     local -a privacy_manifest_files=()
 
     # Create a temporary file to store search results
-    local tempfile="$(mktemp)"
+    local temp_file="$(mktemp)"
 
     # Ensure the temporary file is deleted on script exit
-    trap "rm -f $tempfile" EXIT
+    trap "rm -f $temp_file" EXIT
 
     # Find privacy manifest files within the specified directory and store the results in the temporary file
-    find "$dir_path" -type f -name "$PRIVACY_MANIFEST_FILE_NAME" -print0 2>/dev/null > "$tempfile"
+    find "$dir_path" -type f -name "$PRIVACY_MANIFEST_FILE_NAME" -print0 2>/dev/null > "$temp_file"
 
     # Exclude privacy manifest files within excluded directories
     while IFS= read -r -d '' file_path; do
@@ -947,19 +950,19 @@ search_privacy_manifest_files() {
         if [[ $skip_file -eq 0 ]]; then
             privacy_manifest_files+=($(encode_path "$file_path"))
         fi
-    done < "$tempfile"
+    done < "$temp_file"
 
     echo "${privacy_manifest_files[@]}"
 }
 
-get_privacy_manifest_file() {
+function get_privacy_manifest_file() {
     # If there are multiple privacy manifest files, return the one with the shortest path
     local privacy_manifest_file="$(printf "%s\n" "$@" | awk '{print length, $0}' | sort -n | head -n1 | cut -d ' ' -f2-)"
     
     echo "$(decode_path "$privacy_manifest_file")"
 }
 
-check_privacy_manifest_file() {
+function check_privacy_manifest_file() {
     local privacy_manifest_files=("$@")
     
     if [[ ${#privacy_manifest_files[@]} -eq 0 ]]; then
@@ -972,7 +975,7 @@ check_privacy_manifest_file() {
 }
 
 # Get unique categories from analysis results
-get_categories() {
+function get_categories() {
     local results=("$@")
     local -a categories=()
     
@@ -988,7 +991,7 @@ get_categories() {
 }
 
 # Check if descriptions for required API reasons are missing
-check_categories() {
+function check_categories() {
     local privacy_manifest_file="$1"
     local categories=("${@:2}")
     local -a miss_categories=()
@@ -1022,7 +1025,7 @@ check_categories() {
 }
 
 # Analyze the specified directory for privacy manifest file and API usage
-analyze() {
+function analyze() {
     local dir_path="$1"
     local mach_o_type="$2"
     local excluded_dirs=("${@:3}")
@@ -1056,7 +1059,7 @@ analyze() {
 }
 
 # Analyze the target directory
-analyze_target_dir() {
+function analyze_target_dir() {
     # Check if it's a project
     project_xcodeproj_file="$(find "$target_dir" -maxdepth 1 -name "*.xcodeproj")"
     if [ -n "$project_xcodeproj_file" ]; then
@@ -1075,7 +1078,7 @@ analyze_target_dir() {
 }
 
 # Analyze the specified dependency
-analyze_dependency() {
+function analyze_dependency() {
     local dep_path="$1"
     local dep_name="$2"
     local mach_o_type="$3"
@@ -1103,7 +1106,7 @@ analyze_dependency() {
 }
 
 # Analyze the dependencies of the CocoaPods
-analyze_cocoapods_dependencies() {
+function analyze_cocoapods_dependencies() {
     if ! [ -d "$pods_dir" ]; then
         return
     fi
@@ -1142,7 +1145,7 @@ analyze_cocoapods_dependencies() {
 }
 
 # Analyze the dependencies of the Swift Package Manager
-analyze_swiftpm_dependencies() {
+function analyze_swiftpm_dependencies() {
     # Check if the project is using Swift Package Manager
     local swiftpm_package_resolved_file="$project_xcodeproj_file/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
     if ! [ -f "$swiftpm_package_resolved_file" ]; then
@@ -1198,7 +1201,7 @@ analyze_swiftpm_dependencies() {
 }
 
 # Analyze the dependencies of the Carthage
-analyze_carthage_dependencies() {
+function analyze_carthage_dependencies() {
     if ! [ -d "$carthage_dir" ]; then
         return
     fi
@@ -1220,7 +1223,7 @@ analyze_carthage_dependencies() {
 }
 
 # Analyze the local dependencies
-analyze_local_dependencies() {
+function analyze_local_dependencies() {
     if [[ ${#local_dependencies_dirs[@]} -eq 0 ]]; then
         return
     fi
@@ -1245,7 +1248,7 @@ analyze_local_dependencies() {
 
 # Analyze the dependencies of the Flutter
 # Note: The type identification of Flutter dependencies is completed during the analysis of the CocoaPods dependencies, so execute it after the `analyze_cocoapods_dependencies` function
-analyze_flutter_dependencies() {
+function analyze_flutter_dependencies() {
     if ! [ -d "$flutter_plugins_dir" ]; then
         return
     fi
@@ -1262,7 +1265,7 @@ analyze_flutter_dependencies() {
 }
 
 # Analyze the dependencies of the Application Bundle
-analyze_app_dependencies() {
+function analyze_app_dependencies() {
     if ! [ -d "$app_frameworks_dir" ]; then
         return
     fi

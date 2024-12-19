@@ -6,7 +6,7 @@ An iOS project example used to test whether the privacy manifest analyzer is wor
 
 1. Execute `cd <ios_swiftpm_example_path>` command.
 2. Execute `open ./App.xcodeproj` command and wait for dependencies to be fetched.
-3. Execute `sh ../../privacy_manifest_analyser.sh .` command.
+3. Execute `sh ../../analyser.sh .` command.
 
 ## Notes
 
@@ -15,7 +15,7 @@ Since dependency resolution in Swift Package Manager projects is more complex, i
 If there are missing dependencies or other issues in the analysis results, it is recommended to use the following command to ignore dependencies during analysis, thus analyzing all packages:
 
 ```shell
-sh ../../privacy_manifest_analyser.sh -i .
+sh ../../analyser.sh -i .
 ```
 
 **Some packages may not be project dependencies when analyzing all packages, but uncleared caches. Please judge based on your project's actual situation.**

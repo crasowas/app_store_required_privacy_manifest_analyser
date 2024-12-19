@@ -6,4 +6,4 @@ An iOS project example used to test whether the privacy manifest analyzer is wor
 
 1. Execute `cd <ios_carthage_example_path>` command.
 2. Execute `carthage bootstrap --platform iOS --use-xcframeworks` command.
-3. Execute `sh ../../privacy_manifest_analyser.sh .` command.
+3. Execute `sh ../../analyser.sh .` command.
