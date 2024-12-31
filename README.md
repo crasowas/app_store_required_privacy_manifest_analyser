@@ -1,5 +1,6 @@
 # App Store Privacy Manifest Analyzer
 
+[![Latest Version](https://img.shields.io/github/v/release/crasowas/app_store_required_privacy_manifest_analyser?logo=github)](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/releases/latest)
 [![Analysis Support](https://img.shields.io/badge/Analysis%20Support-CocoaPods%20%7C%20SwiftPM%20%7C%20Carthage%20%7C%20Flutter%20%7C%20App-brightgreen)](#supported-dependency-sources-for-separate-analysis)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
@@ -37,9 +38,14 @@ Congratulations! You are now ready to start using the script. Should you encount
 xcode-select --install
 ```
 
+## Installation
+
+1. **Download the [latest release](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/releases/latest).**
+2. **Extract the downloaded archive.**
+
 ## Usage
 
-### 1. Getting Started
+### Getting Started
 
 ```shell
 sh analyser.sh <directory_path>
@@ -136,7 +142,7 @@ If your app's code has the same issue, please refer to the following documents o
 
 To address this confusion, the analyzer will list API usage that may affect your app's privacy manifest. **Pay attention to it, as it will help you fill out the app's privacy manifest more accurately.**
 
-### 2. Command Line Options
+### Command Line Options
 
 - `-c`: Not to filter comments when scanning source code.
 
@@ -174,10 +180,18 @@ This option is typically used for the analysis of Swift Package Manager projects
 sh analyser.sh -v <directory_path>
 ```
 
-### 3. Saving Analysis Log
+### Saving Analysis Log
 
 ```shell
 sh analyser.sh <directory_path> > log.txt
+```
+
+### Upgrade the Tool
+
+To update to the latest version, execute the following command:
+
+```shell
+sh upgrade.sh
 ```
 
 ## Supported Dependency Sources for Separate Analysis
@@ -188,7 +202,7 @@ sh analyser.sh <directory_path> > log.txt
 | Swift Package Manager | [ios_swiftpm_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_swiftpm_example)   |
 | Carthage              | [ios_carthage_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/ios_carthage_example) |
 | Flutter               | [flutter_example](https://github.com/crasowas/app_store_required_privacy_manifest_analyser/tree/main/Examples/flutter_example)           |
-| Application Bundle    | Planned                                                                                                                                  |
+| Application Bundle    | N/A                                                                                                                                      |
 
 ## Privacy Access Report
 
