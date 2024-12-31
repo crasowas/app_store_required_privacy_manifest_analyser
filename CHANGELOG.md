@@ -1,3 +1,6 @@
+## 1.8.0
+- Add upgrade support.
+
 ## 1.7.0
 - Enhance recognition for commonly used SDKs.
 - Rename `privacy_manifest_analyser.sh` to `analyser.sh`.
