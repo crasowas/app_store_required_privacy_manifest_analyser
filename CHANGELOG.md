@@ -1,3 +1,7 @@
+## 1.8.2
+- Enhance API symbols analysis with strings tool.
+- Improve performance of API usage analysis.
+
 ## 1.8.0
 - Add upgrade support.
 
