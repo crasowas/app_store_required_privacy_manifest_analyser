@@ -807,6 +807,8 @@ function is_common_sdk() {
 function analyze_source_file() {
     local file_path="$1"
     local -a results=()
+    
+    local filtered_source=$(filter_comment "$file_path")
 
     for api_text in "${API_TEXTS[@]}"; do
         local substrings=($(split_string_by_delimiter "$api_text"))
@@ -814,7 +816,7 @@ function analyze_source_file() {
         local api=${substrings[1]}
     
         # Check if the API text exists in the source code
-        if filter_comment "$file_path" | grep -qFw "$api"; then
+        if echo "$filtered_source" | grep -qFw "$api"; then
             local index=-1
             for ((i=0; i<${#results[@]}; i++)); do
                 local result="${results[i]}"
@@ -841,33 +843,35 @@ function analyze_source_file() {
 function analyze_binary_file() {
     local file_path="$1"
     local -a results=()
-    
+
+    # Check if the API symbol exists in the binary file using `nm` and `strings`
+    local nm_output=$(nm "$file_path" 2>/dev/null | xcrun swift-demangle)
+    local strings_output=$(strings "$file_path")
+    local combined_output="$nm_output"$'\n'"$strings_output"
+
     for api_symbol in "${API_SYMBOLS[@]}"; do
         local substrings=($(split_string_by_delimiter "$api_symbol"))
         local category=${substrings[0]}
         local api=${substrings[1]}
-    
-        # Check if the API symbol exists in the binary file using `nm` and `strings`
-        for tool in "nm \"$file_path\" 2>/dev/null | xcrun swift-demangle" "strings \"$file_path\""; do
-            if eval "$tool | grep -E \"$api\$\" >/dev/null"; then
-                local index=-1
-                for ((i=0; i < ${#results[@]}; i++)); do
-                    local result="${results[i]}"
-                    local result_substrings=($(split_string_by_delimiter "$result"))
-                    # If the category matches an existing result, update it
-                    if [ "$category" == "${result_substrings[0]}" ]; then
-                        index=i
-                        results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
-                        break
-                    fi
-                done
 
-                # If no matching category found, add a new result
-                if [[ $index -eq -1 ]]; then
-                    results+=("$category$DELIMITER$api$DELIMITER$(encode_path "$file_path")")
+        if echo "$combined_output" | grep -E "$api\$" >/dev/null; then
+            local index=-1
+            for ((i=0; i < ${#results[@]}; i++)); do
+                local result="${results[i]}"
+                local result_substrings=($(split_string_by_delimiter "$result"))
+                # If the category matches an existing result, update it
+                if [ "$category" == "${result_substrings[0]}" ]; then
+                    index=i
+                    results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
+                    break
                 fi
+            done
+
+            # If no matching category found, add a new result
+            if [[ $index -eq -1 ]]; then
+                results+=("$category$DELIMITER$api$DELIMITER$(encode_path "$file_path")")
             fi
-        done
+        fi
     done
     
     echo "${results[@]}"
