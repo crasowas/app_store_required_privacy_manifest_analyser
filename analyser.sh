@@ -525,10 +525,10 @@ function search_dependencies_in_cocoapods() {
     for dep_name in "${names[@]}"; do
         # Find the product name of the dependency
         # The default product name is the same as the dependency name
-        dep_product_name="$dep_name"
+        local dep_product_name="$dep_name"
         for product in "${products[@]}"; do
-            product_substrings=($(split_string_by_delimiter "$product"))
-            product_type=${product_substrings[2]}
+            local product_substrings=($(split_string_by_delimiter "$product"))
+            local product_type=${product_substrings[2]}
             if [ "$dep_name" == "${product_substrings[0]}" ]; then
                 if [ "$product_type" != "com.apple.product-type.bundle" ]; then
                     dep_product_name=${product_substrings[1]}
@@ -542,7 +542,7 @@ function search_dependencies_in_cocoapods() {
         # Ignore if the product type is bundle
         if [ -n "$dep_product_name" ]; then
             # Find the Mach-O type of the dependency
-            dep_mach_o_type="$MACH_O_TYPE_UNKNOWN"
+            local dep_mach_o_type="$MACH_O_TYPE_UNKNOWN"
             for mach_o_type in "${mach_o_types[@]}"; do
                 mach_o_type_substrings=($(split_string_by_delimiter "$mach_o_type"))
                 if [ "$dep_product_name" == "${mach_o_type_substrings[0]}" ]; then
@@ -687,12 +687,12 @@ function search_dependencies_in_swiftpm() {
     local artifacts=($(search_artifacts_in_swiftpm "$workspace_state_file"))
     
     for package in "${packages[@]}"; do
-        package_substrings=($(split_string_by_delimiter "$package"))
-        dep_name=${package_substrings[0]}
-        dep_product_name=${package_substrings[1]}
+        local package_substrings=($(split_string_by_delimiter "$package"))
+        local dep_name=${package_substrings[0]}
+        local dep_product_name=${package_substrings[1]}
         # By default, dependencies managed by Swift Package Manager are built as static libraries
-        dep_mach_o_type="$MACH_O_TYPE_STATIC_LIB"
-        dep_path=""
+        local dep_mach_o_type="$MACH_O_TYPE_STATIC_LIB"
+        local dep_path=""
     
         # Check if the dependency is a dynamic library
         for embed_framework in "${embed_frameworks[@]}"; do
@@ -704,7 +704,7 @@ function search_dependencies_in_swiftpm() {
         
         # Check if the dependency is an unknown type of library
         for artifact in "${artifacts[@]}"; do
-            artifact_substrings=($(split_string_by_delimiter "$artifact"))
+            local artifact_substrings=($(split_string_by_delimiter "$artifact"))
             
             # Prioritize matching the product name for greater accuracy in analysis
             if [ "$dep_product_name" == "${artifact_substrings[1]}" ]; then
@@ -744,7 +744,7 @@ function get_mach_o_type() {
     local dep_name="$1"
     
     for dependency in "${dependencies[@]}"; do
-        dependency_substrings=($(split_string_by_delimiter "$dependency"))
+        local dependency_substrings=($(split_string_by_delimiter "$dependency"))
         if [ "$dep_name" == "${dependency_substrings[0]}" ]; then
             echo "${dependency_substrings[2]}"
             return
@@ -782,7 +782,7 @@ function is_dependency() {
     local dep_name="$1"
     
     for dependency in "${dependencies[@]}"; do
-        dependency_substrings=($(split_string_by_delimiter "$dependency"))
+        local dependency_substrings=($(split_string_by_delimiter "$dependency"))
         if [ "$dep_name" == "${dependency_substrings[0]}" ]; then
             return 0
         fi
@@ -809,16 +809,16 @@ function analyze_source_file() {
     local -a results=()
 
     for api_text in "${API_TEXTS[@]}"; do
-        substrings=($(split_string_by_delimiter "$api_text"))
-        category=${substrings[0]}
-        api=${substrings[1]}
+        local substrings=($(split_string_by_delimiter "$api_text"))
+        local category=${substrings[0]}
+        local api=${substrings[1]}
     
         # Check if the API text exists in the source code
         if filter_comment "$file_path" | grep -qFw "$api"; then
-            index=-1
+            local index=-1
             for ((i=0; i<${#results[@]}; i++)); do
-                result="${results[i]}"
-                result_substrings=($(split_string_by_delimiter "$result"))
+                local result="${results[i]}"
+                local result_substrings=($(split_string_by_delimiter "$result"))
                 # If the category matches an existing result, update it
                 if [ "$category" == "${result_substrings[0]}" ]; then
                    index=i
@@ -843,29 +843,31 @@ function analyze_binary_file() {
     local -a results=()
     
     for api_symbol in "${API_SYMBOLS[@]}"; do
-        substrings=($(split_string_by_delimiter "$api_symbol"))
-        category=${substrings[0]}
-        api=${substrings[1]}
+        local substrings=($(split_string_by_delimiter "$api_symbol"))
+        local category=${substrings[0]}
+        local api=${substrings[1]}
     
-        # Check if the API symbol exists in the binary file
-        if nm "$file_path" 2>/dev/null | xcrun swift-demangle | grep -E "$api$" >/dev/null; then
-            index=-1
-            for ((i=0; i<${#results[@]}; i++)); do
-                result="${results[i]}"
-                result_substrings=($(split_string_by_delimiter "$result"))
-                # If the category matches an existing result, update it
-                if [ "$category" == "${result_substrings[0]}" ]; then
-                   index=i
-                   results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
-                   break
+        # Check if the API symbol exists in the binary file using `nm` and `strings`
+        for tool in "nm \"$file_path\" 2>/dev/null | xcrun swift-demangle" "strings \"$file_path\""; do
+            if eval "$tool | grep -E \"$api\$\" >/dev/null"; then
+                local index=-1
+                for ((i=0; i < ${#results[@]}; i++)); do
+                    local result="${results[i]}"
+                    local result_substrings=($(split_string_by_delimiter "$result"))
+                    # If the category matches an existing result, update it
+                    if [ "$category" == "${result_substrings[0]}" ]; then
+                        index=i
+                        results[i]="${result_substrings[0]}$DELIMITER${result_substrings[1]},$api$DELIMITER${result_substrings[2]}"
+                        break
+                    fi
+                done
+
+                # If no matching category found, add a new result
+                if [[ $index -eq -1 ]]; then
+                    results+=("$category$DELIMITER$api$DELIMITER$(encode_path "$file_path")")
                 fi
-            done
-  
-            # If no matching category found, add a new result
-            if [[ $index -eq -1 ]]; then
-                results+=("$category$DELIMITER$api$DELIMITER$(encode_path "$file_path")")
             fi
-        fi
+        done
     done
     
     echo "${results[@]}"
@@ -890,15 +892,9 @@ function analyze_api_usage() {
     local dir_name="$(basename "$dir_path")"
     
     # If the directory is an application bundle (.app) or framework (.framework), analyze its binary file
-    if [[ "$dir_name" == *.app ]]; then
-        binary_name="${dir_name%.*}"
-        binary_file="$dir_path/$binary_name"
-        if [ -f "$binary_file" ]; then
-            results+=($(analyze_binary_file "$binary_file"))
-        fi
-    elif [[ "$dir_name" == *.framework ]]; then
-        binary_name="${dir_name%.*}"
-        binary_file="$dir_path/$binary_name"
+    if [[ "$dir_name" == *.app ]] || [[ "$dir_name" == *.framework ]]; then
+        local binary_name="${dir_name%.*}"
+        local binary_file="$dir_path/$binary_name"
         if [ -f "$binary_file" ]; then
             results+=($(analyze_binary_file "$binary_file"))
         fi
@@ -980,8 +976,8 @@ function get_categories() {
     local -a categories=()
     
     for result in "${results[@]}"; do
-        substrings=($(split_string_by_delimiter "$result"))
-        category=${substrings[0]}
+        local substrings=($(split_string_by_delimiter "$result"))
+        local category=${substrings[0]}
         if [[ ! "${categories[@]}" =~ "$category" ]]; then
             categories+=("$category")
         fi
@@ -1030,22 +1026,22 @@ function analyze() {
     local mach_o_type="$2"
     local excluded_dirs=("${@:3}")
     
-    privacy_manifest_files=($(search_privacy_manifest_files "$dir_path" "${excluded_dirs[@]}"))
+    local privacy_manifest_files=($(search_privacy_manifest_files "$dir_path" "${excluded_dirs[@]}"))
     check_privacy_manifest_file "${privacy_manifest_files[@]}"
     print_array "${privacy_manifest_files[@]}"
     
-    results=($(analyze_api_usage "$dir_path" "${excluded_dirs[@]}"))
+    local results=($(analyze_api_usage "$dir_path" "${excluded_dirs[@]}"))
     echo "API usage analysis result(s): ${#results[@]}"
     print_array "${results[@]}"
 
-    categories=($(get_categories "${results[@]}"))
+    local categories=($(get_categories "${results[@]}"))
     check_categories "$(get_privacy_manifest_file "${privacy_manifest_files[@]}")" "${categories[@]}"
     
     # If identified as a dynamic library, disregard the effect of the analysis results on the application's privacy manifest
     if [ "$mach_o_type" != "$MACH_O_TYPE_DY_LIB" ]; then
         for result in "${results[@]}"; do
-            result_substrings=($(split_string_by_delimiter "$result"))
-            file_path="$(decode_path "${result_substrings[2]}")"
+            local result_substrings=($(split_string_by_delimiter "$result"))
+            local file_path="$(decode_path "${result_substrings[2]}")"
             
             # If identified as a static library, any analysis results from non-dynamically linked libraries within it could affect the application's privacy manifest
             # For libraries of unknown type, only the analysis results of statically linked libraries are included in the list that could affect the application's privacy manifest
@@ -1133,7 +1129,7 @@ function analyze_cocoapods_dependencies() {
     
     for path in "$pods_dir"/*; do
         if [ -d "$path" ] && ! is_excluded_dir "$path" "${pods_excluded_dirs[@]}"; then
-            dep_name="$(get_dependency_name "$path")"
+            local dep_name="$(get_dependency_name "$path")"
             if [ "$ignore_dependencies" == true ] || is_dependency "$dep_name"; then
                 analyze_dependency "$path" "$dep_name"
             else
@@ -1175,7 +1171,7 @@ function analyze_swiftpm_dependencies() {
         if [ -d "$checkouts_dir" ]; then
             for path in "$checkouts_dir"/*; do
                 if [ -d "$path" ]; then
-                    dep_name="$(get_dependency_name "$path")"
+                    local dep_name="$(get_dependency_name "$path")"
                     analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_UNKNOWN"
                 fi
             done
@@ -1184,17 +1180,17 @@ function analyze_swiftpm_dependencies() {
         if [ -d "$artifacts_dir" ]; then
             for path in "$artifacts_dir"/*; do
                 if [ -d "$path" ] && [ "$(basename "$path")" != "extract" ]; then
-                    dep_name="$(get_dependency_name "$path")"
+                    local dep_name="$(get_dependency_name "$path")"
                     analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_UNKNOWN"
                 fi
             done
         fi
     else
         for dependency in "${dependencies[@]}"; do
-            dependency_substrings=($(split_string_by_delimiter "$dependency"))
-            name="${dependency_substrings[1]}"
-            mach_o_type="${dependency_substrings[2]}"
-            path="${dependency_substrings[3]}"
+            local dependency_substrings=($(split_string_by_delimiter "$dependency"))
+            local name="${dependency_substrings[1]}"
+            local mach_o_type="${dependency_substrings[2]}"
+            local path="${dependency_substrings[3]}"
             analyze_dependency "$path" "$name" "$mach_o_type"
         done
     fi
@@ -1216,7 +1212,7 @@ function analyze_carthage_dependencies() {
     
     for path in "$carthage_build_dir"/*; do
         if [ -d "$path" ]; then
-            dep_name="$(get_dependency_name "$path")"
+            local dep_name="$(get_dependency_name "$path")"
             analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_UNKNOWN"
         fi
     done
@@ -1239,7 +1235,7 @@ function analyze_local_dependencies() {
     
         for path in "$local_dependencies_dir"/*; do
             if [ -d "$path" ]; then
-                dep_name="$(get_dependency_name "$path")"
+                local dep_name="$(get_dependency_name "$path")"
                 analyze_dependency "$path" "$dep_name"
             fi
         done
@@ -1256,8 +1252,8 @@ function analyze_flutter_dependencies() {
     print_title "Analyzing Flutter Dependencies"
     
     for path in "$flutter_plugins_dir"/*; do
-        dep_path="$(readlink -f "$path")"
-        dep_name="$(get_dependency_name "$path")"
+        local dep_path="$(readlink -f "$path")"
+        local dep_name="$(get_dependency_name "$path")"
         if [ -d "$dep_path" ]; then
             analyze_dependency "$dep_path" "$dep_name"
         fi
@@ -1274,7 +1270,7 @@ function analyze_app_dependencies() {
     
     for path in "$app_frameworks_dir"/*; do
         if [ -d "$path" ]; then
-            dep_name="$(get_dependency_name "$path")"
+            local dep_name="$(get_dependency_name "$path")"
             analyze_dependency "$path" "$dep_name" "$MACH_O_TYPE_DY_LIB"
         fi
     done
