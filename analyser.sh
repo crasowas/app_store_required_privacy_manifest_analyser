@@ -822,7 +822,7 @@ function analyze_source_file() {
         local api=${substrings[1]}
     
         # Check if the API text exists in the source code
-        if echo "$filtered_source" | grep -qFw "$api"; then
+        if grep -qFw "$api" <<< "$filtered_source"; then
             local index=-1
             for ((i=0; i<${#results[@]}; i++)); do
                 local result="${results[i]}"
