@@ -23,21 +23,27 @@ target_excluded_dirs=()
 
 # Parse command-line options
 while getopts ":cd:e:iv" opt; do
-  case $opt in
-    c) keep_comment=true
-    ;;
-    d) local_dependencies_dirs+=("$OPTARG")
-    ;;
-    e) target_excluded_dirs+=("$OPTARG")
-    ;;
-    i) ignore_dependencies=true
-    ;;
-    v) verbose=true
-    ;;
-    \?) echo "Invalid option: -$OPTARG" >&2
-        exit 1
-    ;;
-  esac
+    case $opt in
+        c)
+            keep_comment=true
+            ;;
+        d)
+            local_dependencies_dirs+=("$OPTARG")
+            ;;
+        e)
+            target_excluded_dirs+=("$OPTARG")
+            ;;
+        i)
+            ignore_dependencies=true
+            ;;
+        v)
+            verbose=true
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            exit 1
+            ;;
+    esac
 done
 
 shift $((OPTIND - 1))
@@ -340,7 +346,7 @@ function print_text() {
     local text="$1"
 
     if [ -t 1 ]; then
-        echo "$text"
+        printf "$text\n"
     else
         echo "$text" | sed "s/\x1B\[[0-9;]*m//g"
     fi
@@ -909,12 +915,12 @@ function analyze_api_usage() {
             elif [ -f "$path" ]; then
                 # Analyze source files (.swift, .h, .m, .mm, .c, .cc, .hpp, .cpp) and binary files (.a)
                 case "$path" in
-                  *.swift | *.h | *.m | *.mm | *.c | *.cc | *.hpp | *.cpp)
-                    results+=($(analyze_source_file "$path"))
-                    ;;
-                  *.a)
-                    results+=($(analyze_binary_file "$path"))
-                    ;;
+                    *.swift | *.h | *.m | *.mm | *.c | *.cc | *.hpp | *.cpp)
+                        results+=($(analyze_source_file "$path"))
+                        ;;
+                    *.a)
+                        results+=($(analyze_binary_file "$path"))
+                        ;;
                 esac
             fi
         done
