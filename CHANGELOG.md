@@ -1,3 +1,6 @@
+## 1.8.3
+- Fix broken pipe error during source file analysis.
+
 ## 1.8.2
 - Enhance API symbols analysis with strings tool.
 - Improve performance of API usage analysis.
